@@ -1,0 +1,39 @@
+{% extends 'web/base.html' %}
+{% block title %}RetentionPulse — Fearless Vision Delivered{% endblock %}
+{% block content %}
+<main class="landing-shell">
+  <video class="landing-video" autoplay muted loop playsinline preload="metadata" poster="">
+    <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260517_222138_3e3205be-3364-417b-a64a-bfe087acbec4.mp4" type="video/mp4">
+  </video>
+  <div class="landing-overlay"></div>
+  <div class="landing-content">
+    <nav class="landing-nav" aria-label="Primary navigation">
+      <a class="landing-logo" href="{% url 'landing' %}" aria-label="RetentionPulse home"><span></span></a>
+      <div class="landing-nav-links">
+        <a href="#story">Story</a><a href="#expertise">Expertise</a><a href="#studios">Studios</a><a href="#feedback">Feedback</a>
+      </div>
+      <details class="menu-details"><summary class="menu-button" aria-label="Open menu">☰</summary><div id="mobile-menu" class="mobile-menu"><a href="#story">Story</a><a href="#expertise">Expertise</a><a href="#studios">Studios</a><a href="#feedback">Feedback</a><a class="menu-cta" href="{% url 'login' %}">Work With Us ↗</a></div></details>
+    </nav>
+
+
+    <section class="landing-main" id="story">
+      <div class="landing-stats" aria-label="Company statistics">
+        <div class="landing-stat"><strong><i>+</i>300</strong><span>Crafted<br>Brands</span></div>
+        <div class="landing-stat"><strong><i>+</i>200</strong><span>Digital<br>Products</span></div>
+        <div class="landing-stat"><strong><i>+</i>100</strong><span>Ventures<br>Funded</span></div>
+      </div>
+    </section>
+
+    <section class="landing-bottom" id="expertise">
+      <div class="landing-row">
+        <p class="landing-tagline">Shaping Bold<br>Visions Into Power<br>For Your Tribe</p>
+        <a class="landing-cta" href="{% url 'login' %}">Work With Us ↗</a>
+      </div>
+      <div class="landing-row landing-row-end">
+        <p class="landing-description">Creative Studios Built Around Elevating Your Vision Into Striking Reality</p>
+        <h1 class="landing-heading"><span>Fearless</span><span>Vision</span><span>Delivered</span></h1>
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}

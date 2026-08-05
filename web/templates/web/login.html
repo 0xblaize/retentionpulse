@@ -1,0 +1,89 @@
+{% extends 'web/base.html' %}
+{% block title %}Enter RetentionPulse{% endblock %}
+{% block content %}
+<main class="auth-page">
+  <a class="landing-logo" href="{% url 'landing' %}" aria-label="Back to home"><span></span></a>
+  <div class="auth-card">
+    <p class="eyebrow">RETENTIONPULSE / PRIVATE WORKSPACE</p>
+    <h1>Unlock your pulse.</h1>
+    <p>Use a passkey to scan your edit securely.</p>
+    <div class="error" id="passkey-error" role="alert" hidden></div>
+    <button type="button" id="passkey-login">Continue with passkey</button>
+    <button type="button" id="passkey-register" class="secondary-auth">Register this device</button>
+    <p class="auth-help">Passkeys require a supported browser. Registration is available for the first workspace device.</p>
+  </div>
+</main>
+<script>
+  const csrfToken = '{{ csrf_token }}';
+  const errorBox = document.getElementById('passkey-error');
+  const loginButton = document.getElementById('passkey-login');
+  const registerButton = document.getElementById('passkey-register');
+
+  function bytes(value) {
+    const padded = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
+    return Uint8Array.from(atob(padded), character => character.charCodeAt(0));
+  }
+
+  function base64url(buffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function decodeOptions(options) {
+    for (const key of ['challenge', 'user', 'allowCredentials', 'excludeCredentials']) {
+      if (key === 'user' && options.user) options.user.id = bytes(options.user.id);
+      if (key === 'allowCredentials' && options.allowCredentials) options.allowCredentials.forEach(item => item.id = bytes(item.id));
+      if (key === 'excludeCredentials' && options.excludeCredentials) options.excludeCredentials.forEach(item => item.id = bytes(item.id));
+      if (key === 'challenge' && options.challenge) options.challenge = bytes(options.challenge);
+    }
+    return options;
+  }
+
+  function credentialPayload(credential) {
+    return {
+      id: credential.id,
+      rawId: base64url(credential.rawId),
+      type: credential.type,
+      response: Object.fromEntries(Object.entries(credential.response).map(([key, value]) => [key, value instanceof ArrayBuffer ? base64url(value) : value]))
+    };
+  }
+
+  async function request(url, options = {}) {
+    const response = await fetch(url, { credentials: 'same-origin', headers: { 'X-CSRFToken': csrfToken, ...(options.headers || {}) }, ...options });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || 'Passkey request failed.');
+    return data;
+  }
+
+  async function authenticate() {
+    const options = decodeOptions(await request('{% url "passkey-auth-options" %}', { method: 'POST' }));
+    const credential = await navigator.credentials.get({ publicKey: options });
+    await request('{% url "passkey-auth-verify" %}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credentialPayload(credential)) });
+    window.location.href = '{% url "dashboard" %}';
+  }
+
+  async function register() {
+    const options = decodeOptions(await request('{% url "passkey-register-options" %}', { method: 'POST' }));
+    const credential = await navigator.credentials.create({ publicKey: options });
+    await request('{% url "passkey-register-verify" %}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credentialPayload(credential)) });
+    window.location.href = '{% url "dashboard" %}';
+  }
+
+  async function run(action) {
+    errorBox.hidden = true;
+    loginButton.disabled = true;
+    registerButton.disabled = true;
+    try {
+      if (!window.PublicKeyCredential || !navigator.credentials) throw new Error('This browser does not support passkeys.');
+      await action();
+    } catch (error) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+      loginButton.disabled = false;
+      registerButton.disabled = false;
+    }
+  }
+
+  loginButton.addEventListener('click', () => run(authenticate));
+  registerButton.addEventListener('click', () => run(register));
+</script>
+{% endblock %}

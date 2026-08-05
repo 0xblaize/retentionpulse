@@ -1,0 +1,13 @@
+streamlit>=1.36,<2
+opencv-python-headless>=4.10,<5
+numpy>=1.26,<3
+pandas>=2.2,<3
+plotly>=5.22,<7
+pytest>=8,<9
+pytest-django>=4.9,<5
+Django>=5.1,<6
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+httpx>=0.27,<1
+python-multipart>=0.0.9,<1
+webauthn>=2.3,<3
