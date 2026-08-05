@@ -4,6 +4,7 @@ import os
 import tempfile
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
@@ -12,6 +13,7 @@ from retentionpulse.service import analyze_video_json
 from .schemas import AnalysisResponse
 
 
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 MAX_UPLOAD_BYTES = int(os.getenv("RETENTIONPULSE_MAX_UPLOAD_BYTES", str(250 * 1024 * 1024)))
 SUPPORTED_EXTENSIONS = {".mp4", ".mov", ".m4v"}
 SUPPORTED_CONTENT_TYPES = {"video/mp4", "video/quicktime", "video/x-m4v", "application/octet-stream"}

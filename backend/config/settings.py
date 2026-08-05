@@ -3,7 +3,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+FRONTEND_DIR = BASE_DIR.parent / "frontend"
+load_dotenv(BASE_DIR.parent / ".env")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "retentionpulse-local-secret-change-me")
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
 ALLOWED_HOSTS = [host for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,testserver").split(",") if host]
@@ -19,7 +23,7 @@ INSTALLED_APPS = ["django.contrib.contenttypes", "django.contrib.sessions", "dja
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "web" / "templates", BASE_DIR / "frontend" / "dist"],
+        "DIRS": [BASE_DIR / "web" / "templates", FRONTEND_DIR / "dist"],
         "APP_DIRS": True,
         "OPTIONS": {"context_processors": [
             "django.template.context_processors.request",
@@ -32,7 +36,7 @@ ASGI_APPLICATION = "config.asgi.application"
 DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "web" / "static", BASE_DIR / "frontend" / "dist"]
+STATICFILES_DIRS = [BASE_DIR / "web" / "static", FRONTEND_DIR / "dist"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("RETENTIONPULSE_MAX_UPLOAD_BYTES", str(250 * 1024 * 1024)))
 FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE

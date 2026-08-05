@@ -16,18 +16,20 @@ Install Python dependencies:
 ```bash
 python -m venv .venv
 .venv\\Scripts\\activate
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
 Start the FastAPI analysis service:
 
 ```bash
+cd backend
 uvicorn retentionpulse_api.main:app --host 127.0.0.1 --port 8001
 ```
 
 Start Django in another terminal:
 
 ```bash
+cd backend
 python manage.py migrate
 python manage.py runserver 127.0.0.1:8000
 ```
@@ -74,8 +76,10 @@ FastAPI accepts MP4, MOV, and M4V files up to 250 MB by default. Uploaded files 
 ## Tests
 
 ```bash
+cd backend
 python -m pytest -q
 python manage.py check
+cd ..
 cd frontend && npm run build
 ```
 

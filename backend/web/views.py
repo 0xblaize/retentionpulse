@@ -29,7 +29,7 @@ def protected(view: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
 
 
 def landing(request: HttpRequest) -> HttpResponse:
-    frontend_entry = settings.BASE_DIR / "frontend" / "dist" / "index.html"
+    frontend_entry = settings.FRONTEND_DIR / "dist" / "index.html"
     if frontend_entry.exists():
         return render(request, "index.html")
     return render(request, "web/landing.html")
