@@ -1,146 +1,68 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowUpRight, X } from 'lucide-react'
+import { ArrowUpRight, CheckCircle2, CircleAlert, LogOut, Upload, X } from 'lucide-react'
+import { analyzeVideo, bootstrapCsrf, getSession, logout } from './api'
 
 const VIDEO_URL = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260517_222138_3e3205be-3364-417b-a64a-bfe087acbec4.mp4'
 const navItems = ['Story', 'Analysis', 'Workflow', 'Feedback']
-const stats = [
-  ['0.5s', 'FRAME\nSAMPLING'],
-  ['6s', 'DEAD-AIR\nTHRESHOLD'],
-  ['250MB', 'UPLOAD\nLIMIT']
-]
+const stats = [['0.5s', 'FRAME\nSAMPLING'], ['6s', 'DEAD-AIR\nTHRESHOLD'], ['250MB', 'UPLOAD\nLIMIT']]
 const ease = [0.22, 1, 0.36, 1]
-
-const fadeDown = {
-  hidden: { opacity: 0, y: -20 },
-  visible: (index) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: index * 0.1, duration: 0.5, ease }
-  })
-}
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 32 },
-  visible: (index) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: index * 0.12, duration: 0.6, ease }
-  })
-}
-
-const headingReveal = {
-  hidden: { y: '110%' },
-  visible: (index) => ({
-    y: 0,
-    transition: { delay: 0.4 + index * 0.14, duration: 0.7, ease }
-  })
-}
+const fadeDown = { hidden: { opacity: 0, y: -20 }, visible: (index) => ({ opacity: 1, y: 0, transition: { delay: index * 0.1, duration: 0.5, ease } }) }
+const fadeUp = { hidden: { opacity: 0, y: 32 }, visible: (index) => ({ opacity: 1, y: 0, transition: { delay: index * 0.12, duration: 0.6, ease } }) }
+const headingReveal = { hidden: { y: '110%' }, visible: (index) => ({ y: 0, transition: { delay: 0.4 + index * 0.14, duration: 0.7, ease } }) }
 
 function Logo() {
-  return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-accent" aria-hidden="true">
-      <span className="h-2.5 w-2.5 rounded-full bg-accent" />
-    </span>
-  )
+  return <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-accent" aria-hidden="true"><span className="h-2.5 w-2.5 rounded-full bg-accent" /></span>
 }
 
 function Hamburger({ onClick, label = 'Open menu' }) {
-  return (
-    <button type="button" onClick={onClick} aria-label={label} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2">
-      <span className="flex flex-col gap-1">
-        <span className="h-0.5 w-4 bg-white" />
-        <span className="h-0.5 w-4 bg-white" />
-        <span className="h-0.5 w-4 bg-white" />
-      </span>
-    </button>
-  )
+  return <button type="button" onClick={onClick} aria-label={label} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"><span className="flex flex-col gap-1"><span className="h-0.5 w-4 bg-white" /><span className="h-0.5 w-4 bg-white" /><span className="h-0.5 w-4 bg-white" /></span></button>
 }
 
-function App() {
+function Landing() {
   const [menuOpen, setMenuOpen] = useState(false)
   const reduceMotion = useReducedMotion()
   const initial = reduceMotion ? false : 'hidden'
-  const animate = 'visible'
-
-  return (
-    <main className="relative flex min-h-screen flex-col overflow-hidden bg-[#c9c8c6] font-sans uppercase tracking-widest text-black">
-      <video className="absolute inset-0 h-full w-full object-cover" src={VIDEO_URL} autoPlay muted loop playsInline aria-hidden="true" />
-
-      <div className="relative z-10 flex min-h-screen flex-col px-5 pt-5 sm:px-8 md:px-12 md:pt-6">
-        <nav className="flex h-9 shrink-0 items-center justify-between" aria-label="Primary navigation">
-          <motion.a custom={0} variants={fadeDown} initial={initial} animate={animate} href="/" aria-label="RetentionPulse home" className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2">
-            <Logo />
-            <span className="text-sm font-semibold tracking-widest">RP</span>
-          </motion.a>
-
-          <div className="hidden items-center gap-9 md:flex">
-            {navItems.map((item, index) => (
-              <motion.a key={item} custom={index + 1} variants={fadeDown} initial={initial} animate={animate} href={`#${item.toLowerCase()}`} className="text-sm font-semibold tracking-widest focus:outline-none focus:ring-2 focus:ring-accent">
-                {item}
-              </motion.a>
-            ))}
-          </div>
-
-          <motion.div custom={5} variants={fadeDown} initial={initial} animate={animate}>
-            <Hamburger onClick={() => setMenuOpen(true)} />
-          </motion.div>
-        </nav>
-
-        <section className="flex flex-1 items-center justify-end py-8 md:py-0" aria-label="Selected work statistics">
-          <div className="flex items-start justify-end gap-5 text-right sm:gap-8 md:gap-10">
-            {stats.map(([number, label], index) => (
-              <motion.div key={label} custom={index + 2} variants={fadeUp} initial={initial} animate={animate} className="text-right">
-                <p className="font-semibold leading-none" style={{ fontSize: 'clamp(1.5rem, 5vw, 3.5rem)' }}><span className="text-[0.5em] text-accent">•</span>{number}</p>
-                <p className="whitespace-pre-line text-[10px] font-semibold leading-tight tracking-widest sm:text-xs md:text-sm">{label}</p>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-
-        <section className="flex shrink-0 flex-col gap-6 pb-8 md:gap-12 md:pb-12">
-          <div className="flex items-center justify-between gap-4">
-            <motion.p custom={5} variants={fadeUp} initial={initial} animate={animate} className="max-w-[130px] text-[10px] font-semibold leading-tight tracking-widest sm:max-w-[160px] sm:text-xs md:max-w-xs md:text-sm">
-              Make Every<br />Second Matter<br />For Your Audience
-            </motion.p>
-            <motion.a custom={6} variants={fadeUp} initial={initial} animate={animate} href="/login/" className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-base font-semibold tracking-wide text-accent focus:outline-none focus:ring-2 focus:ring-accent sm:text-xl md:text-2xl">
-              Analyze Your video<ArrowUpRight size={18} className="sm:h-[22px] sm:w-[22px]" />
-            </motion.a>
-          </div>
-
-          <div className="flex items-end justify-between gap-3 sm:gap-4">
-            <motion.div custom={7} variants={fadeUp} initial={initial} animate={animate} className="w-[120px] shrink-0 text-left sm:w-[180px] sm:text-left md:w-[280px] md:text-right">
-              <p className="text-[9px] font-semibold leading-tight tracking-widest sm:text-xs md:text-sm">AI-Powered Visual Retention Analysis Built For Editors And Creators</p>
-            </motion.div>
-            <h1 className="text-right font-semibold leading-[0.88] tracking-[-0.08em]" style={{ fontSize: 'clamp(2rem, 9vw, 9rem)' }}>
-              {['Detect', 'Dead Air', 'Early'].map((word, index) => (
-                <span key={word} className="block overflow-hidden">
-                  <motion.span custom={index} variants={headingReveal} initial={initial} animate={animate} className="block">{word}</motion.span>
-                </span>
-              ))}
-            </h1>
-          </div>
-        </section>
-      </div>
-
-      <AnimatePresence>
-        {menuOpen && (
-          <motion.div className="fixed inset-0 z-50 flex min-h-screen flex-col bg-white px-5 pb-8 pt-5 sm:px-8 md:px-12" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.25 }}>
-            <div className="flex items-center justify-between">
-              <a href="/" onClick={() => setMenuOpen(false)} aria-label="RetentionPulse home" className="flex items-center gap-2"><Logo /><span className="text-sm font-semibold tracking-widest">RP</span></a>
-              <button type="button" onClick={() => setMenuOpen(false)} aria-label="Close menu" className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"><X size={20} /></button>
-            </div>
-            <nav className="mt-16 flex flex-col gap-8" aria-label="Mobile navigation">
-              {navItems.map((item, index) => (
-                <motion.a key={item} href={`#${item.toLowerCase()}`} onClick={() => setMenuOpen(false)} className="text-3xl font-semibold tracking-widest focus:outline-none focus:ring-2 focus:ring-accent" initial={reduceMotion ? false : { opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : index * 0.08, duration: reduceMotion ? 0 : 0.35, ease }}>{item}</motion.a>
-              ))}
-            </nav>
-            <a href="/login/" className="mt-auto inline-flex items-center gap-2 text-xl font-semibold tracking-wide text-accent">Analyze Your Edit <ArrowUpRight size={22} /></a>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </main>
-  )
+  return <main className="relative flex min-h-screen flex-col overflow-hidden bg-[#c9c8c6] font-sans uppercase tracking-widest text-black">
+    <video className="absolute inset-0 h-full w-full object-cover" src={VIDEO_URL} autoPlay muted loop playsInline aria-hidden="true" />
+    <div className="relative z-10 flex min-h-screen flex-col px-5 pt-5 sm:px-8 md:px-12 md:pt-6">
+      <nav className="flex h-9 shrink-0 items-center justify-between" aria-label="Primary navigation">
+        <motion.a custom={0} variants={fadeDown} initial={initial} animate="visible" href="/" aria-label="RetentionPulse home" className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"><Logo /><span className="text-sm font-semibold tracking-widest">RP</span></motion.a>
+        <div className="hidden items-center gap-9 md:flex">{navItems.map((item, index) => <motion.a key={item} custom={index + 1} variants={fadeDown} initial={initial} animate="visible" href={`#${item.toLowerCase()}`} className="text-sm font-semibold tracking-widest focus:outline-none focus:ring-2 focus:ring-accent">{item}</motion.a>)}</div>
+        <motion.div custom={5} variants={fadeDown} initial={initial} animate="visible"><Hamburger onClick={() => setMenuOpen(true)} /></motion.div>
+      </nav>
+      <section className="flex flex-1 items-center justify-end py-8 md:py-0" aria-label="Selected work statistics"><div className="flex items-start justify-end gap-5 text-right sm:gap-8 md:gap-10">{stats.map(([number, label], index) => <motion.div key={label} custom={index + 2} variants={fadeUp} initial={initial} animate="visible" className="text-right"><p className="font-semibold leading-none" style={{ fontSize: 'clamp(1.5rem, 5vw, 3.5rem)' }}><span className="text-[0.5em] text-accent">•</span>{number}</p><p className="whitespace-pre-line text-[10px] font-semibold leading-tight tracking-widest sm:text-xs md:text-sm">{label}</p></motion.div>)}</div></section>
+      <section className="flex shrink-0 flex-col gap-6 pb-8 md:gap-12 md:pb-12"><div className="flex items-center justify-between gap-4"><motion.p custom={5} variants={fadeUp} initial={initial} animate="visible" className="max-w-[130px] text-[10px] font-semibold leading-tight tracking-widest sm:max-w-[160px] sm:text-xs md:max-w-xs md:text-sm">Make Every<br />Second Matter<br />For Your Audience</motion.p><motion.a custom={6} variants={fadeUp} initial={initial} animate="visible" href="/login/" className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-base font-semibold tracking-wide text-accent focus:outline-none focus:ring-2 focus:ring-accent sm:text-xl md:text-2xl">Analyze Your video<ArrowUpRight size={18} className="sm:h-[22px] sm:w-[22px]" /></motion.a></div><div className="flex items-end justify-between gap-3 sm:gap-4"><motion.div custom={7} variants={fadeUp} initial={initial} animate="visible" className="w-[120px] shrink-0 text-left sm:w-[180px] sm:text-left md:w-[280px] md:text-right"><p className="text-[9px] font-semibold leading-tight tracking-widest sm:text-xs md:text-sm">AI-Powered Visual Retention Analysis Built For Editors And Creators</p></motion.div><h1 className="text-right font-semibold leading-[0.88] tracking-[-0.08em]" style={{ fontSize: 'clamp(2rem, 9vw, 9rem)' }}>{['Detect', 'Dead Air', 'Early'].map((word, index) => <span key={word} className="block overflow-hidden"><motion.span custom={index} variants={headingReveal} initial={initial} animate="visible" className="block">{word}</motion.span></span>)}</h1></div></section>
+    </div>
+    <AnimatePresence>{menuOpen && <motion.div className="fixed inset-0 z-50 flex min-h-screen flex-col bg-white px-5 pb-8 pt-5 sm:px-8 md:px-12" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.25 }}><div className="flex items-center justify-between"><a href="/" onClick={() => setMenuOpen(false)} aria-label="RetentionPulse home" className="flex items-center gap-2"><Logo /><span className="text-sm font-semibold tracking-widest">RP</span></a><button type="button" onClick={() => setMenuOpen(false)} aria-label="Close menu" className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white"><X size={20} /></button></div><nav className="mt-16 flex flex-col gap-8" aria-label="Mobile navigation">{navItems.map((item, index) => <motion.a key={item} href={`#${item.toLowerCase()}`} onClick={() => setMenuOpen(false)} className="text-3xl font-semibold tracking-widest" initial={reduceMotion ? false : { opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : index * 0.08, duration: reduceMotion ? 0 : 0.35, ease }}>{item}</motion.a>)}</nav><a href="/login/" className="mt-auto inline-flex items-center gap-2 text-xl font-semibold tracking-wide text-accent">Analyze Your Edit <ArrowUpRight size={22} /></a></motion.div>}</AnimatePresence>
+  </main>
 }
 
-export default App
+function Metric({ label, value, detail }) { return <div className="rounded-2xl border border-black/10 bg-white/70 p-5"><p className="text-xs font-semibold tracking-[0.18em] text-black/55">{label}</p><p className="mt-2 text-3xl font-semibold tracking-tight">{value}</p>{detail && <p className="mt-1 text-sm normal-case tracking-normal text-black/60">{detail}</p>}</div> }
+
+function formatTime(seconds) { if (!Number.isFinite(seconds)) return '0:00'; const minutes = Math.floor(seconds / 60); return `${minutes}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` }
+
+function Timeline({ analysis }) {
+  const points = analysis.timeline || []
+  const segments = analysis.segments || []
+  const duration = analysis.duration || 1
+  return <section className="rounded-3xl border border-black/10 bg-white/80 p-5 sm:p-7" aria-labelledby="timeline-heading"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold tracking-[0.18em] text-accent">MOTION MAP</p><h2 id="timeline-heading" className="mt-1 text-2xl font-semibold tracking-tight">Retention timeline</h2></div><div className="flex gap-4 text-xs font-semibold tracking-wide"><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-safe" />Clear</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-risk" />Risk</span></div></div><div className="mt-6" role="img" aria-label="Timeline showing clear and risk points"><div className="relative h-16 rounded-xl bg-[#e7e8e3]">{segments.map((segment, index) => <div key={`${segment.start}-${index}`} title={`${formatTime(segment.start)}–${formatTime(segment.end)} risk segment`} className="absolute inset-y-0 rounded-md bg-risk/80" style={{ left: `${(segment.start / duration) * 100}%`, width: `${Math.max(((segment.end - segment.start) / duration) * 100, 0.5)}%` }} />)}<div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-black/15" />{points.map((point, index) => <span key={`${point.timestamp}-${index}`} title={`${formatTime(point.timestamp)} · motion ${point.motion_score.toFixed(2)} · ${point.risk ? 'risk' : 'clear'}`} className={`absolute top-1/2 h-4 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full ${point.risk ? 'bg-risk' : 'bg-black/35'}`} style={{ left: `${point.position}%` }} />)}</div><div className="mt-2 flex justify-between text-xs text-black/55"><span>0:00</span><span>{formatTime(duration)}</span></div></div><div className="sr-only"><table><caption>Timeline points</caption><thead><tr><th>Time</th><th>Motion score</th><th>Status</th></tr></thead><tbody>{points.map((point, index) => <tr key={`${point.timestamp}-${index}`}><td>{formatTime(point.timestamp)}</td><td>{point.motion_score.toFixed(2)}</td><td>{point.risk ? 'Risk' : 'Clear'}</td></tr>)}</tbody></table></div></section>
+}
+
+function Dashboard() {
+  const [analysis, setAnalysis] = useState(null)
+  const [file, setFile] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [checking, setChecking] = useState(true)
+  const [error, setError] = useState('')
+  const [dragging, setDragging] = useState(false)
+  useEffect(() => { let active = true; (async () => { try { await bootstrapCsrf(); const session = await getSession(); if (!session.authenticated) { window.location.href = '/login/'; return } if (active) setChecking(false) } catch (err) { if (active) { setError(err.message); setChecking(false) } } })(); return () => { active = false } }, [])
+  const selectFile = (next) => { setError(''); if (!next) return; const valid = ['video/mp4', 'video/quicktime', 'video/x-m4v'].includes(next.type) || /\.(mp4|mov|m4v)$/i.test(next.name); if (!valid) { setFile(null); setError('Choose an MP4, MOV, or M4V video.'); return } if (next.size > 250 * 1024 * 1024) { setFile(null); setError('This video exceeds the 250MB upload limit.'); return } setFile(next) }
+  const submit = async (event) => { event.preventDefault(); if (!file || busy) return; setBusy(true); setError(''); try { setAnalysis(await analyzeVideo(file)) } catch (err) { if (err.name !== 'AbortError') setError(err.message) } finally { setBusy(false) } }
+  const signOut = async () => { await logout(); window.location.href = '/' }
+  if (checking) return <div className="flex min-h-screen items-center justify-center bg-[#f4f1ed] text-sm font-semibold tracking-[0.18em]">Checking workspace…</div>
+  const ratio = analysis ? `${(analysis.risk_ratio * 100).toFixed(1)}%` : '—'
+  return <main className="min-h-screen bg-[#f4f1ed] px-5 py-5 text-black sm:px-8 md:px-12"><header className="mx-auto flex max-w-6xl items-center justify-between"><a href="/" aria-label="RetentionPulse home" className="flex items-center gap-2"><Logo /><span className="text-sm font-semibold tracking-widest">RP / WORKSPACE</span></a><button onClick={signOut} className="inline-flex items-center gap-2 rounded-full border border-black/15 px-4 py-2 text-xs font-semibold tracking-[0.14em] hover:bg-black hover:text-white"><LogOut size={15} />Sign out</button></header><div className="mx-auto max-w-6xl py-14"><div className="max-w-3xl"><p className="text-xs font-semibold tracking-[0.2em] text-accent">RETENTIONPULSE / ANALYSIS</p><h1 className="mt-4 text-5xl font-semibold leading-[0.95] tracking-[-0.06em] sm:text-7xl">Find the seconds<br />that lose people.</h1><p className="mt-6 max-w-xl text-base normal-case tracking-normal text-black/65">Upload an edit and get a motion map of visual dead air, flagged moments, and practical repair suggestions.</p></div><form onSubmit={submit} className="mt-10 max-w-3xl"><label onDragOver={(event) => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); selectFile(event.dataTransfer.files[0]) }} className={`flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-8 text-center transition sm:p-12 ${dragging ? 'border-accent bg-accent/10' : 'border-black/20 bg-white/65 hover:border-accent'}`}><Upload className="text-accent" /><span className="mt-4 text-sm font-semibold tracking-[0.14em]">{file ? file.name : 'Drop your video here'}</span><span className="mt-2 text-sm normal-case tracking-normal text-black/55">MP4, MOV, or M4V · up to 250MB</span><input type="file" accept="video/mp4,video/quicktime,video/x-m4v,.mp4,.mov,.m4v" className="sr-only" onChange={(event) => selectFile(event.target.files[0])} /></label><button disabled={!file || busy} className="mt-4 inline-flex items-center gap-2 rounded-full bg-black px-6 py-3 text-sm font-semibold tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Scanning…' : 'Scan this edit'}<ArrowUpRight size={17} /></button>{error && <p className="mt-4 flex items-center gap-2 text-sm text-red-700" role="alert"><CircleAlert size={16} />{error}</p>}</form>{analysis && <div className="mt-14 space-y-6"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Health score" value={`${analysis.health_score}/100`} detail={analysis.health_score >= 80 ? 'Strong visual rhythm' : 'Worth a closer cut'} /><Metric label="Duration" value={formatTime(analysis.duration)} /><Metric label="Risk time" value={formatTime(analysis.risk_seconds)} detail={`${ratio} of the edit`} /><Metric label="Flagged moments" value={analysis.segments.length} detail={analysis.segments.length ? 'Review the segments below' : 'No dead air detected'} /></div><Timeline analysis={analysis} /><div className="grid gap-6 lg:grid-cols-2"><section className="rounded-3xl border border-black/10 bg-white/80 p-5 sm:p-7" aria-labelledby="segments-heading"><p className="text-xs font-semibold tracking-[0.18em] text-accent">FLAGGED SEGMENTS</p><h2 id="segments-heading" className="mt-1 text-2xl font-semibold tracking-tight">Where attention drops</h2>{analysis.segments.length ? <ul className="mt-5 space-y-3">{analysis.segments.map((segment, index) => <li key={`${segment.start}-${index}`} className="flex items-center justify-between rounded-xl bg-risk/20 px-4 py-3 text-sm"><span className="font-semibold">{formatTime(segment.start)}–{formatTime(segment.end)}</span><span className="text-black/60">{segment.duration.toFixed(1)}s · {(segment.confidence * 100).toFixed(0)}% confidence</span></li>)}</ul> : <p className="mt-5 flex items-center gap-2 text-sm text-black/60"><CheckCircle2 size={17} className="text-green-700" />Your edit keeps visual motion throughout.</p>}</section><section className="rounded-3xl border border-black/10 bg-white/80 p-5 sm:p-7" aria-labelledby="suggestions-heading"><p className="text-xs font-semibold tracking-[0.18em] text-accent">REPAIR PLAN</p><h2 id="suggestions-heading" className="mt-1 text-2xl font-semibold tracking-tight">Make the cut sharper</h2>{analysis.ai_repair_plan && <p className="mt-5 rounded-xl bg-accent/10 p-4 text-sm normal-case leading-relaxed tracking-normal">{analysis.ai_repair_plan}</p>}<ul className="mt-5 space-y-4">{analysis.suggestions.map((suggestion, index) => <li key={`${suggestion.timestamp}-${index}`} className="border-l-2 border-accent pl-4"><p className="text-sm font-semibold">{formatTime(suggestion.timestamp)} · {suggestion.action}</p><p className="mt-1 text-sm normal-case leading-relaxed tracking-normal text-black/65">{suggestion.detail}</p></li>)}</ul></section></div></div>}</div></main>
+}
+
+export default function App() { const path = window.location.pathname; if (path.startsWith('/dashboard')) return <Dashboard />; if (path.startsWith('/login')) { window.location.href = '/login/'; return null } return <Landing /> }
