@@ -8,6 +8,7 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("dashboard/analyze/", views.analyze, name="analyze"),
+    path("api/auth/csrf/", views.csrf_bootstrap, name="csrf-bootstrap"),
     path("api/auth/session/", views.auth_session, name="auth-session"),
     path("api/auth/logout/", views.auth_logout, name="auth-logout"),
     path("api/auth/passkey/register/options/", views.passkey_register_options, name="passkey-register-options"),

@@ -11,6 +11,7 @@ from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.shortcuts import redirect, render
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 from .models import PasskeyCredential
@@ -33,6 +34,11 @@ def landing(request: HttpRequest) -> HttpResponse:
     if frontend_entry.exists():
         return render(request, "index.html")
     return render(request, "web/landing.html")
+
+
+@ensure_csrf_cookie
+def csrf_bootstrap(request: HttpRequest) -> JsonResponse:
+    return JsonResponse({"ok": True})
 
 
 def auth_session(request: HttpRequest) -> JsonResponse:
@@ -193,6 +199,9 @@ def logout_view(request: HttpRequest) -> HttpResponse:
 
 @protected
 def dashboard(request: HttpRequest) -> HttpResponse:
+    frontend_entry = settings.FRONTEND_DIR / "dist" / "index.html"
+    if frontend_entry.exists():
+        return render(request, "index.html")
     return render(request, "web/dashboard.html", {"analysis": request.session.get("analysis")})
 
 

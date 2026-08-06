@@ -31,4 +31,5 @@ class AnalysisResponse(BaseModel):
     health_score: int
     segments: list[Segment]
     suggestions: list[Suggestion]
+    ai_repair_plan: str | None = None
     timeline: list[TimelinePoint]

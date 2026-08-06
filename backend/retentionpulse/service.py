@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .analyzer import AnalysisResult, analyze_video
+from .analyzer import analyze_video
+from .llm import generate_ai_repair_plan
 from .suggestions import generate_repair_suggestions
 
 
@@ -22,6 +23,23 @@ def analyze_video_json(video_path: str | Path) -> dict[str, Any]:
         }
         for segment in result.static_segments
     ]
+    suggestion_payload = [
+        {
+            "timestamp": suggestion.timestamp,
+            "action": suggestion.action,
+            "detail": suggestion.detail,
+            "priority": suggestion.priority,
+        }
+        for suggestion in suggestions
+    ]
+    health_score = max(0, round((1.0 - risk_ratio) * 100))
+    ai_repair_plan = generate_ai_repair_plan(
+        duration=result.duration,
+        risk_seconds=risk_seconds,
+        health_score=health_score,
+        segments=segments,
+        suggestions=suggestion_payload,
+    )
     timeline = [
         {
             "timestamp": sample.timestamp,
@@ -35,16 +53,9 @@ def analyze_video_json(video_path: str | Path) -> dict[str, Any]:
         "duration": result.duration,
         "risk_seconds": risk_seconds,
         "risk_ratio": risk_ratio,
-        "health_score": max(0, round((1.0 - risk_ratio) * 100)),
+        "health_score": health_score,
         "segments": segments,
-        "suggestions": [
-            {
-                "timestamp": suggestion.timestamp,
-                "action": suggestion.action,
-                "detail": suggestion.detail,
-                "priority": suggestion.priority,
-            }
-            for suggestion in suggestions
-        ],
+        "suggestions": suggestion_payload,
+        "ai_repair_plan": ai_repair_plan,
         "timeline": timeline,
     }
