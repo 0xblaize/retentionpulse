@@ -89,4 +89,14 @@ cd ..
 cd frontend && npm run build
 ```
 
-The analyzer is deterministic and does not require an LLM, transcript, database, or external AI API.
+The analyzer is deterministic and does not require an LLM, transcript, database, or external AI API. The optional written repair-plan advisor uses Groq’s OpenAI-compatible API with `llama-3.3-70b-versatile`; if `RETENTIONPULSE_LLM_API_KEY` is missing or the request fails, the deterministic JSON remediation manifest is still returned.
+
+For a live Groq repair plan, add these values to `.env`:
+
+```text
+RETENTIONPULSE_LLM_API_URL=https://api.groq.com/openai/v1/chat/completions
+RETENTIONPULSE_LLM_API_KEY=your-groq-api-key
+RETENTIONPULSE_LLM_MODEL=llama-3.3-70b-versatile
+```
+
+Create the key in the Groq Console and keep it server-side; do not expose it in the frontend.

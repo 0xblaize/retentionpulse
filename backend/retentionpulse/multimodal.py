@@ -138,4 +138,35 @@ def analyze_multimodal(video_path: str | Path, result: AnalysisResult) -> dict[s
     for index, segment in enumerate(result.static_segments):
         remediation.append({"id": f"visual-{index + 1}", "start": segment.start, "end": segment.end, "severity": "red", "category": "visual_monotony", "edit_type": "cut_or_b_roll", "title": "Break the static shot", "rationale": f"Visual motion stayed low for {segment.duration:.1f} seconds.", "instruction": "Cut to B-roll, add camera movement, or apply a purposeful punch-in zoom.", "priority": "high"})
 
+    semantic_start: float | None = None
+    semantic_end = 0.0
+    semantic_index = 1
+    for point in points + [{"timestamp": result.duration, "semantic_drift": 0.0}]:
+        drifting = float(point.get("semantic_drift") or 0.0) >= 0.5
+        timestamp = float(point["timestamp"])
+        if drifting and semantic_start is None:
+            semantic_start = timestamp
+        if drifting:
+            semantic_end = timestamp + WINDOW_SECONDS
+        elif semantic_start is not None and semantic_end - semantic_start >= 3.0:
+            context = next((segment["text"] for segment in (transcript or []) if segment.get("start", 0.0) <= semantic_start < segment.get("end", 0.0)), "the spoken topic")
+            remediation.append({"id": f"semantic-{semantic_index}", "start": semantic_start, "end": semantic_end, "severity": "red", "category": "semantic_drift", "edit_type": "b_roll_or_graphic", "title": "Restore visual relevance", "rationale": f"Visual support drifted from the narration for {semantic_end - semantic_start:.1f} seconds.", "instruction": f"Add B-roll or supporting graphics that reinforce: {context[:160]}.", "priority": "high"})
+            semantic_index += 1
+            semantic_start = None
+
+    pause_start: float | None = None
+    pause_end = 0.0
+    pause_index = 1
+    for window in audio_windows + [{"timestamp": result.duration, "speech": 1.0}]:
+        silent = not window.get("speech", 0.0)
+        timestamp = float(window["timestamp"])
+        if silent and pause_start is None:
+            pause_start = timestamp
+        if silent:
+            pause_end = timestamp + WINDOW_SECONDS
+        elif pause_start is not None and pause_end - pause_start >= LONG_PAUSE_SECONDS:
+            remediation.append({"id": f"pause-{pause_index}", "start": pause_start, "end": pause_end, "severity": "yellow", "category": "long_pause_or_silence", "edit_type": "tighten_audio", "title": "Tighten the pause", "rationale": f"Speech was silent for {pause_end - pause_start:.1f} seconds.", "instruction": "Trim the dead air or cover the pause with a purposeful visual beat.", "priority": "medium"})
+            pause_index += 1
+            pause_start = None
+
     return {"analyzer_version": ANALYZER_VERSION, "mode": "multimodal", "capabilities": {"visual": True, "audio": bool(audio_windows), "transcription": transcription_available, "embeddings": embedding_available, "semantic_drift": embedding_available}, "warnings": warnings + ([] if transcription_available else ["Local Whisper is not installed or provisioned; transcript and word-level cadence are unavailable."]) + ([] if embedding_available else ["Local shared text/image embeddings are not installed or provisioned; semantic drift is unavailable."]), "transcript": transcript, "speech_metrics": speech_metrics, "timeline_zones": points, "remediation_actions": remediation}

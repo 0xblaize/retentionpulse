@@ -17,6 +17,38 @@ html, body, #root { min-height: 100%; margin: 0; }
 body { min-width: 320px; }
 button, a { -webkit-tap-highlight-color: transparent; }
 
+.status-swatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  flex: 0 0 auto;
+  border-radius: 9999px;
+  border: 1px solid rgba(16, 16, 16, 0.22);
+}
+
+.heatmap-zone {
+  min-width: 0.35rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.48);
+  transition: filter 160ms ease, transform 160ms ease;
+}
+
+.heatmap-zone:hover,
+.heatmap-zone:focus-visible {
+  position: relative;
+  z-index: 1;
+  filter: saturate(1.25) brightness(0.92);
+  transform: scaleY(1.12);
+  outline: 3px solid #5E0ED7;
+  outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  .status-swatch,
+  .heatmap-zone { forced-color-adjust: none; border: 2px solid CanvasText; }
+  .heatmap-zone { background: Canvas !important; }
+  .heatmap-zone[data-zone='red'] { background: Mark !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

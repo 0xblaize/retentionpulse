@@ -6,6 +6,7 @@ export default {
       colors: {
         accent: '#5E0ED7',
         safe: '#9BEF9B',
+        warning: '#F4C95D',
         risk: '#FF7D73'
       },
       fontFamily: {

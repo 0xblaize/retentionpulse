@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -37,15 +36,6 @@ def analyze_video_json(video_path: str | Path, *, mode: str = "auto") -> dict[st
         for suggestion in suggestions
     ]
     health_score = max(0, round((1.0 - risk_ratio) * 100))
-    ai_repair_plan = None
-    if os.getenv("RETENTIONPULSE_OFFLINE_MODE", "1") != "1":
-        ai_repair_plan = generate_ai_repair_plan(
-            duration=result.duration,
-            risk_seconds=risk_seconds,
-            health_score=health_score,
-            segments=segments,
-            suggestions=suggestion_payload,
-        )
     timeline = [
         {
             "timestamp": sample.timestamp,
@@ -55,16 +45,33 @@ def analyze_video_json(video_path: str | Path, *, mode: str = "auto") -> dict[st
         }
         for sample, score in zip(result.samples, result.motion_scores)
     ]
-    payload = {
+    multimodal_payload: dict[str, Any] = {}
+    if mode != "visual":
+        multimodal_payload = analyze_multimodal(video_path, result)
+
+    payload: dict[str, Any] = {
         "duration": result.duration,
         "risk_seconds": risk_seconds,
         "risk_ratio": risk_ratio,
         "health_score": health_score,
         "segments": segments,
         "suggestions": suggestion_payload,
-        "ai_repair_plan": ai_repair_plan,
+        "ai_repair_plan": None,
         "timeline": timeline,
+        **multimodal_payload,
     }
-    if mode != "visual":
-        payload.update(analyze_multimodal(video_path, result))
+    try:
+        payload["ai_repair_plan"] = generate_ai_repair_plan(
+            duration=result.duration,
+            risk_seconds=risk_seconds,
+            health_score=health_score,
+            segments=segments,
+            suggestions=suggestion_payload,
+            transcript=multimodal_payload.get("transcript", []),
+            speech_metrics=multimodal_payload.get("speech_metrics"),
+            timeline_zones=multimodal_payload.get("timeline_zones", []),
+            remediation_actions=multimodal_payload.get("remediation_actions", []),
+        )
+    except Exception:
+        payload["ai_repair_plan"] = None
     return payload
