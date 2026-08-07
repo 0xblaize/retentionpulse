@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile, status
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
 from retentionpulse.service import analyze_video_json
@@ -25,8 +25,8 @@ def _extension(filename: str | None) -> str:
     return Path(filename or "").suffix.lower()
 
 
-def _analyze(path: str) -> dict:
-    return analyze_video_json(path)
+def _analyze(path: str, mode: str = "auto") -> dict:
+    return analyze_video_json(path, mode=mode)
 
 
 @app.get("/health")
@@ -34,8 +34,15 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/health/multimodal")
+def multimodal_health() -> dict[str, object]:
+    import shutil
+
+    return {"status": "ok", "visual": True, "audio": shutil.which(os.getenv("RETENTIONPULSE_FFMPEG", "ffmpeg")) is not None, "transcription": False, "embeddings": False}
+
+
 @app.post("/analyze", response_model=AnalysisResponse)
-async def analyze(video: UploadFile = File(...)) -> AnalysisResponse:
+async def analyze(video: UploadFile = File(...), mode: str = Form("auto")) -> AnalysisResponse:
     extension = _extension(video.filename)
     if extension not in SUPPORTED_EXTENSIONS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Supported video types are MP4, MOV, and M4V.")
@@ -52,7 +59,9 @@ async def analyze(video: UploadFile = File(...)) -> AnalysisResponse:
                 if total > MAX_UPLOAD_BYTES:
                     raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="The video exceeds the upload limit.")
                 temporary_file.write(chunk)
-        payload = await run_in_threadpool(_analyze, temporary_path)
+        if mode not in {"visual", "multimodal", "auto"}:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Analysis mode must be visual, multimodal, or auto.")
+        payload = await run_in_threadpool(_analyze, temporary_path, mode)
         return AnalysisResponse.model_validate(payload)
     except HTTPException:
         raise

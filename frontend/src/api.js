@@ -15,7 +15,7 @@ function csrfToken() {
 
 async function request(path, options = {}) {
   const response = await fetch(djangoUrl(path), {
-    credentials: 'same-origin',
+    credentials: djangoBase ? 'include' : 'same-origin',
     ...options,
     headers: {
       ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
@@ -45,8 +45,9 @@ export async function logout() {
   return request('/api/auth/logout/', { method: 'POST' })
 }
 
-export async function analyzeVideo(file, signal) {
+export async function analyzeVideo(file, signal, mode = 'auto') {
   const body = new FormData()
   body.append('video', file)
+  body.append('mode', mode)
   return request('/api/analyze/', { method: 'POST', body, signal })
 }

@@ -15,6 +15,7 @@
 </main>
 <script>
   const csrfToken = '{{ csrf_token }}';
+  const dashboardUrl = '{{ frontend_url }}/dashboard';
   const errorBox = document.getElementById('passkey-error');
   const loginButton = document.getElementById('passkey-login');
   const registerButton = document.getElementById('passkey-register');
@@ -58,14 +59,14 @@
     const options = decodeOptions(await request('{% url "passkey-auth-options" %}', { method: 'POST' }));
     const credential = await navigator.credentials.get({ publicKey: options });
     await request('{% url "passkey-auth-verify" %}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credentialPayload(credential)) });
-    window.location.href = '{% url "dashboard" %}';
+    window.location.href = dashboardUrl;
   }
 
   async function register() {
     const options = decodeOptions(await request('{% url "passkey-register-options" %}', { method: 'POST' }));
     const credential = await navigator.credentials.create({ publicKey: options });
     await request('{% url "passkey-register-verify" %}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credentialPayload(credential)) });
-    window.location.href = '{% url "dashboard" %}';
+    window.location.href = dashboardUrl;
   }
 
   async function run(action) {

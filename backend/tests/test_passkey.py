@@ -1,5 +1,8 @@
+import pytest
 from django.test import Client
 
+
+pytestmark = pytest.mark.django_db
 
 def test_passkey_registration_options_returns_public_key_payload():
     response = Client().post("/api/auth/passkey/register/options/")

@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
 from .analyzer import analyze_video
 from .llm import generate_ai_repair_plan
+from .multimodal import analyze_multimodal
 from .suggestions import generate_repair_suggestions
 
 
-def analyze_video_json(video_path: str | Path) -> dict[str, Any]:
+def analyze_video_json(video_path: str | Path, *, mode: str = "auto") -> dict[str, Any]:
+    if mode not in {"visual", "multimodal", "auto"}:
+        raise ValueError("Analysis mode must be visual, multimodal, or auto.")
     result = analyze_video(video_path)
     suggestions = generate_repair_suggestions(result.static_segments)
     risk_seconds = sum(segment.duration for segment in result.static_segments)
@@ -33,13 +37,15 @@ def analyze_video_json(video_path: str | Path) -> dict[str, Any]:
         for suggestion in suggestions
     ]
     health_score = max(0, round((1.0 - risk_ratio) * 100))
-    ai_repair_plan = generate_ai_repair_plan(
-        duration=result.duration,
-        risk_seconds=risk_seconds,
-        health_score=health_score,
-        segments=segments,
-        suggestions=suggestion_payload,
-    )
+    ai_repair_plan = None
+    if os.getenv("RETENTIONPULSE_OFFLINE_MODE", "1") != "1":
+        ai_repair_plan = generate_ai_repair_plan(
+            duration=result.duration,
+            risk_seconds=risk_seconds,
+            health_score=health_score,
+            segments=segments,
+            suggestions=suggestion_payload,
+        )
     timeline = [
         {
             "timestamp": sample.timestamp,
@@ -49,7 +55,7 @@ def analyze_video_json(video_path: str | Path) -> dict[str, Any]:
         }
         for sample, score in zip(result.samples, result.motion_scores)
     ]
-    return {
+    payload = {
         "duration": result.duration,
         "risk_seconds": risk_seconds,
         "risk_ratio": risk_ratio,
@@ -59,3 +65,6 @@ def analyze_video_json(video_path: str | Path) -> dict[str, Any]:
         "ai_repair_plan": ai_repair_plan,
         "timeline": timeline,
     }
+    if mode != "visual":
+        payload.update(analyze_multimodal(video_path, result))
+    return payload

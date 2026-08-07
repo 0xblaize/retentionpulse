@@ -189,7 +189,7 @@ def auth_logout(request: HttpRequest) -> JsonResponse:
 
 
 def login_view(request: HttpRequest) -> HttpResponse:
-    return render(request, "web/login.html")
+    return render(request, "web/login.html", {"frontend_url": settings.RETENTIONPULSE_FRONTEND_URL})
 
 
 def logout_view(request: HttpRequest) -> HttpResponse:
@@ -205,10 +205,11 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     return render(request, "web/dashboard.html", {"analysis": request.session.get("analysis")})
 
 
-def _forward_analysis(video: Any) -> tuple[int, dict[str, Any]]:
+def _forward_analysis(video: Any, mode: str = "auto") -> tuple[int, dict[str, Any]]:
     response = httpx.post(
         f"{settings.RETENTIONPULSE_API_URL}/analyze",
         files={"video": (video.name, video.file, video.content_type or "application/octet-stream")},
+        data={"mode": mode},
         timeout=httpx.Timeout(180.0, connect=10.0),
     )
     try:
@@ -225,7 +226,7 @@ def analyze_api(request: HttpRequest) -> JsonResponse:
     if video is None:
         return JsonResponse({"detail": "Choose a video before scanning."}, status=400)
     try:
-        status_code, payload = _forward_analysis(video)
+        status_code, payload = _forward_analysis(video, request.POST.get("mode", "auto"))
     except httpx.HTTPError:
         return JsonResponse({"detail": "The analysis service is unavailable. Start FastAPI and try again."}, status=502)
     if status_code >= 400:
@@ -241,7 +242,7 @@ def analyze(request: HttpRequest) -> HttpResponse:
     if video is None:
         return render(request, "web/dashboard.html", {"error": "Choose a video before scanning."}, status=400)
     try:
-        status_code, payload = _forward_analysis(video)
+        status_code, payload = _forward_analysis(video, request.POST.get("mode", "auto"))
     except httpx.HTTPError:
         return render(request, "web/dashboard.html", {"error": "The analysis service is unavailable. Start FastAPI and try again."}, status=502)
     if status_code >= 400:

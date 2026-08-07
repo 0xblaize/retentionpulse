@@ -1,6 +1,9 @@
 # Environment and secrets
 .env
 .env.*
+backend/.env
+frontend/.env
+frontend/.env.*
 !.env.example
 
 # Python

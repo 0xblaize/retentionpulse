@@ -36,8 +36,8 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 DATABASES = {
-    "default": dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+    "default": dj_database_url.parse(
+        os.getenv("DATABASE_URL") or f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
         conn_health_checks=True,
     )
@@ -50,7 +50,15 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("RETENTIONPULSE_MAX_UPLOAD_BYTES", s
 FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
 RETENTIONPULSE_API_URL = os.getenv("RETENTIONPULSE_API_URL", "http://127.0.0.1:8001")
 RETENTIONPULSE_DEMO_MODE = False
-RETENTIONPULSE_RP_ID = os.getenv("RETENTIONPULSE_RP_ID", "127.0.0.1")
-RETENTIONPULSE_ORIGIN = os.getenv("RETENTIONPULSE_ORIGIN", "http://127.0.0.1:8000")
+RETENTIONPULSE_RP_ID = os.getenv("RETENTIONPULSE_RP_ID") or "127.0.0.1"
+RETENTIONPULSE_ORIGIN = os.getenv("RETENTIONPULSE_ORIGIN") or "http://127.0.0.1:8000"
 RETENTIONPULSE_RP_NAME = os.getenv("RETENTIONPULSE_RP_NAME", "RetentionPulse")
 RETENTIONPULSE_WEBAUTHN_TIMEOUT_MS = int(os.getenv("RETENTIONPULSE_WEBAUTHN_TIMEOUT_MS", "60000"))
+RETENTIONPULSE_FRONTEND_URL = os.getenv("RETENTIONPULSE_FRONTEND_URL", "http://127.0.0.1:5173").rstrip("/")
+CORS_ALLOWED_ORIGINS = [origin.rstrip("/") for origin in os.getenv("CORS_ALLOWED_ORIGINS", RETENTIONPULSE_FRONTEND_URL).split(",") if origin]
+CSRF_TRUSTED_ORIGINS = [origin.rstrip("/") for origin in os.getenv("CSRF_TRUSTED_ORIGINS", f"{RETENTIONPULSE_ORIGIN},{RETENTIONPULSE_FRONTEND_URL}").split(",") if origin]
+if RETENTIONPULSE_FRONTEND_URL.startswith("https://"):
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SAMESITE = "None"
+    CSRF_COOKIE_SAMESITE = "None"
