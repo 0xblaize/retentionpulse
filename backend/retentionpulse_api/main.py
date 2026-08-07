@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
+from retentionpulse.local_models import model_readiness
 from retentionpulse.service import analyze_video_json
 
 from .schemas import AnalysisResponse
@@ -38,7 +39,13 @@ def health() -> dict[str, str]:
 def multimodal_health() -> dict[str, object]:
     import shutil
 
-    return {"status": "ok", "visual": True, "audio": shutil.which(os.getenv("RETENTIONPULSE_FFMPEG", "ffmpeg")) is not None, "transcription": False, "embeddings": False}
+    readiness = model_readiness()
+    return {
+        "status": "ok",
+        "visual": True,
+        "audio": shutil.which(os.getenv("RETENTIONPULSE_FFMPEG", "ffmpeg")) is not None,
+        **readiness,
+    }
 
 
 @app.post("/analyze", response_model=AnalysisResponse)

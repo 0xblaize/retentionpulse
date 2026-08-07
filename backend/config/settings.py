@@ -48,10 +48,15 @@ STATICFILES_DIRS = [BASE_DIR / "web" / "static", FRONTEND_DIR / "dist"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("RETENTIONPULSE_MAX_UPLOAD_BYTES", str(250 * 1024 * 1024)))
 FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
-RETENTIONPULSE_API_URL = os.getenv("RETENTIONPULSE_API_URL", "http://127.0.0.1:8001")
+def _service_url(value: str, default: str) -> str:
+    value = value.strip() or default
+    return value if "://" in value else f"https://{value}"
+
+
+RETENTIONPULSE_API_URL = _service_url(os.getenv("RETENTIONPULSE_API_URL", ""), "http://127.0.0.1:8001")
 RETENTIONPULSE_DEMO_MODE = False
 RETENTIONPULSE_RP_ID = os.getenv("RETENTIONPULSE_RP_ID") or "127.0.0.1"
-RETENTIONPULSE_ORIGIN = os.getenv("RETENTIONPULSE_ORIGIN") or "http://127.0.0.1:8000"
+RETENTIONPULSE_ORIGIN = _service_url(os.getenv("RETENTIONPULSE_ORIGIN", ""), "http://127.0.0.1:8000")
 RETENTIONPULSE_RP_NAME = os.getenv("RETENTIONPULSE_RP_NAME", "RetentionPulse")
 RETENTIONPULSE_WEBAUTHN_TIMEOUT_MS = int(os.getenv("RETENTIONPULSE_WEBAUTHN_TIMEOUT_MS", "60000"))
 RETENTIONPULSE_FRONTEND_URL = os.getenv("RETENTIONPULSE_FRONTEND_URL", "http://127.0.0.1:5173").rstrip("/")

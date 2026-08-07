@@ -44,6 +44,12 @@ npm run dev
 
 Open `http://127.0.0.1:5173/` for the React landing page. Vite proxies `/api`, `/login`, and `/dashboard` to Django on port 8000. FastAPI is available at `http://127.0.0.1:8001`.
 
+## Render deployment
+
+`render.yaml` provisions separate Docker images: `retentionpulse-api` includes FFmpeg and the optional local multimodal dependencies, while `retentionpulse-django` stays lightweight. The API uses a persistent `/app/model-cache` disk and remains offline by default.
+
+Set `RETENTIONPULSE_WHISPER_MODEL` and `RETENTIONPULSE_EMBEDDING_MODEL` to directories that already exist on that disk. If the model directories are not provisioned, `/health/multimodal` reports those capabilities as unavailable and analysis falls back to visual/audio diagnostics without downloading weights during a request.
+
 ## Passkeys
 
 Django owns passkey registration and authentication. The first workspace device can select **Register this device** on `/login/`; later visits use **Continue with passkey**. The server verifies the WebAuthn challenge, relying-party ID, origin, signature, user verification, and signature counter before creating a Django session.

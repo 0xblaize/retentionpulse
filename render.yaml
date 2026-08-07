@@ -1,0 +1,66 @@
+services:
+  - type: web
+    name: retentionpulse-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile.api
+    dockerContext: .
+    dockerCommand: uvicorn retentionpulse_api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: RETENTIONPULSE_OFFLINE_MODE
+        value: "1"
+      - key: RETENTIONPULSE_FFMPEG
+        value: ffmpeg
+      - key: RETENTIONPULSE_MODEL_CACHE
+        value: /app/model-cache
+      - key: RETENTIONPULSE_WHISPER_MODEL
+        sync: false
+      - key: RETENTIONPULSE_EMBEDDING_MODEL
+        sync: false
+    disk:
+      name: retentionpulse-model-cache
+      mountPath: /app/model-cache
+      sizeGB: 10
+
+  - type: web
+    name: retentionpulse-django
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile.django
+    dockerContext: .
+    dockerCommand: sh -c 'python manage.py migrate && uvicorn config.asgi:application --host 0.0.0.0 --port $PORT'
+    healthCheckPath: /api/auth/session/
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "0"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: DJANGO_ALLOWED_HOSTS
+        fromService:
+          type: web
+          name: retentionpulse-django
+          property: host
+      - key: RETENTIONPULSE_FRONTEND_URL
+        value: https://retentionpulse.vercel.app
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://retentionpulse.vercel.app
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://retentionpulse.vercel.app
+      - key: RETENTIONPULSE_API_URL
+        fromService:
+          type: web
+          name: retentionpulse-api
+          property: host
+      - key: RETENTIONPULSE_RP_ID
+        fromService:
+          type: web
+          name: retentionpulse-django
+          property: host
+      - key: RETENTIONPULSE_ORIGIN
+        fromService:
+          type: web
+          name: retentionpulse-django
+          property: host
+      - key: RETENTIONPULSE_MAX_UPLOAD_BYTES
+        value: "262144000"

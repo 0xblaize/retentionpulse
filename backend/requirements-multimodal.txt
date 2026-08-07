@@ -1,0 +1,5 @@
+# Install these only on the persistent analysis service when local models are provisioned.
+faster-whisper>=1.1,<2
+transformers>=4.48,<5
+torch>=2.5,<3
+Pillow>=11,<12
