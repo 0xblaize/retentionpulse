@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 128" role="img" aria-labelledby="title desc">
+  <title id="title">RetentionPulse</title>
+  <desc id="desc">A minimal retention curve mark beside the RetentionPulse wordmark.</desc>
+  <path d="M10 69c13 0 18 1 26 9 6 6 13 10 21 8 9-2 8-29 14-37l8 42 9-18c5-10 12-15 21-15h4c5 0 8-5 12-16" fill="none" stroke="#111111" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="77" cy="91" r="4.5" fill="#111111"/>
+  <text x="153" y="76" fill="#111111" font-family="Inter, Arial, sans-serif" font-size="52" font-weight="700" letter-spacing="-2.6">RetentionPulse</text>
+  <path d="M155 96h260" fill="none" stroke="#111111" stroke-width="2" stroke-linecap="round"/>
+</svg>
