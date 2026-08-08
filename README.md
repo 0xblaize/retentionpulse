@@ -289,7 +289,8 @@ The response includes legacy fields plus the structured diagnostic fields:
 
 ## Render deployment
 
-`render.yaml` provisions separate Docker services:
+`render.yaml` provisions separate Docker services. In the Render dashboard, leave **Root Directory** blank (the repository root); the Blueprint explicitly sets the Docker build context to `./backend`.
+
 
 - `retentionpulse-api` includes FFmpeg and optional multimodal dependencies;
 - `retentionpulse-django` stays lightweight and handles browser/session traffic;

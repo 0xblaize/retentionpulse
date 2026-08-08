@@ -3,7 +3,7 @@ services:
     name: retentionpulse-api
     runtime: docker
     dockerfilePath: ./backend/Dockerfile.api
-    dockerContext: .
+    dockerContext: ./backend
     dockerCommand: uvicorn retentionpulse_api.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
@@ -26,7 +26,7 @@ services:
     name: retentionpulse-django
     runtime: docker
     dockerfilePath: ./backend/Dockerfile.django
-    dockerContext: .
+    dockerContext: ./backend
     dockerCommand: sh -c 'python manage.py migrate && uvicorn config.asgi:application --host 0.0.0.0 --port $PORT'
     healthCheckPath: /api/auth/session/
     envVars:
