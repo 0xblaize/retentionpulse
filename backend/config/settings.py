@@ -49,7 +49,7 @@ DATABASES = {
 }
 SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "web" / "static", FRONTEND_DIR / "dist"]
+STATICFILES_DIRS = [path for path in (BASE_DIR / "web" / "static", FRONTEND_DIR / "dist") if path.exists()]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("RETENTIONPULSE_MAX_UPLOAD_BYTES", str(250 * 1024 * 1024)))
 FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
