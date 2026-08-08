@@ -13,8 +13,14 @@
 }
 
 * { box-sizing: border-box; }
+:root {
+  --page-gutter: clamp(1rem, 3.2vw, 3rem);
+  --section-gap: clamp(2rem, 4vw, 3.5rem);
+  --card-pad: clamp(1rem, 1.8vw, 1.75rem);
+}
+
 html, body, #root { min-height: 100%; margin: 0; }
-body { min-width: 320px; }
+body { width: 100%; overflow-x: hidden; }
 button, a { -webkit-tap-highlight-color: transparent; }
 
 .status-swatch {
@@ -27,7 +33,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 .heatmap-zone {
-  min-width: 0.35rem;
+  min-width: 0;
   border-right: 1px solid rgba(255, 255, 255, 0.48);
   transition: filter 160ms ease, transform 160ms ease;
 }

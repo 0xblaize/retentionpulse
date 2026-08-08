@@ -53,14 +53,8 @@ services:
           name: retentionpulse-api
           property: host
       - key: RETENTIONPULSE_RP_ID
-        fromService:
-          type: web
-          name: retentionpulse-django
-          property: host
+        value: retentionpulse.vercel.app
       - key: RETENTIONPULSE_ORIGIN
-        fromService:
-          type: web
-          name: retentionpulse-django
-          property: host
+        value: https://retentionpulse.vercel.app
       - key: RETENTIONPULSE_MAX_UPLOAD_BYTES
         value: "262144000"

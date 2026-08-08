@@ -289,7 +289,7 @@ The response includes legacy fields plus the structured diagnostic fields:
 
 ## Render deployment
 
-`render.yaml` provisions separate Docker services. In the Render dashboard, leave **Root Directory** blank (the repository root). For a service created manually, set **Docker Context** to `.`, **Dockerfile Path** to `backend/Dockerfile.api` for the API service or `backend/Dockerfile.django` for Django. The root-level `Dockerfile` is also provided as a fallback for Render services that still use the default Dockerfile path; it starts the FastAPI analysis service.
+`render.yaml` provisions separate Docker services. For the declarative setup, leave **Root Directory** blank, use `backend` as each service's **Docker Context**, and use `Dockerfile.api` or `Dockerfile.django` as the Dockerfile path inside that context. For a service created manually from the repository root, use `backend` as the Docker context and `backend/Dockerfile.api` or `backend/Dockerfile.django` as the Dockerfile path. The root-level `Dockerfile` is also provided as a fallback for Render services that still use the default Dockerfile path; it starts the FastAPI analysis service.
 
 
 - `retentionpulse-api` includes FFmpeg and optional multimodal dependencies;
@@ -331,7 +331,9 @@ RETENTIONPULSE_ORIGIN=http://127.0.0.1:8000
 RETENTIONPULSE_RP_NAME=RetentionPulse
 ```
 
-Production passkeys require HTTPS. For deployment, use the production hostname for both `RETENTIONPULSE_RP_ID` and `RETENTIONPULSE_ORIGIN`.
+Production passkeys require HTTPS. For deployment, use the public frontend hostname for both `RETENTIONPULSE_RP_ID` and `RETENTIONPULSE_ORIGIN`, not the Render backend hostname. Set `RETENTIONPULSE_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, and `CSRF_TRUSTED_ORIGINS` to that same public frontend origin.
+
+When the frontend is deployed to Vercel, keep `VITE_DJANGO_URL` empty in the production environment. The frontend uses same-origin `/login/`, `/dashboard/`, and `/api/` paths, while `frontend/vercel.json` proxies those paths to Django on Render. This keeps the browser on the public frontend hostname during passkey login and Analyze flows. If you use a custom frontend domain, replace `retentionpulse.vercel.app` in both `render.yaml` and the Vercel rewrite destination configuration as appropriate.
 
 ## Detection assumptions and limitations
 

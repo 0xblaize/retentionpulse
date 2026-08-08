@@ -1,8 +1,8 @@
 const djangoBase = import.meta.env.VITE_DJANGO_URL || ''
 
 export const authRoutes = {
-  login: `${djangoBase}/login/`,
-  dashboard: `${djangoBase}/dashboard/`
+  login: '/login/',
+  dashboard: '/dashboard/'
 }
 
 export function djangoUrl(path) {
