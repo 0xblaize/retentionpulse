@@ -23,8 +23,15 @@ async function request(path, options = {}) {
       ...(options.headers || {})
     }
   })
-  const contentType = response.headers.get('content-type') || ''
-  const payload = contentType.includes('application/json') ? await response.json() : null
+  const body = await response.text()
+  let payload = null
+  try {
+    payload = body ? JSON.parse(body) : null
+  } catch {
+    const error = new Error(`Request returned an invalid response (${response.status})`)
+    error.status = response.status
+    throw error
+  }
   if (!response.ok) {
     const error = new Error(payload?.detail || payload?.error || `Request failed (${response.status})`)
     error.status = response.status

@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -35,9 +36,13 @@ TEMPLATES = [
 ]
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
+database_url = os.getenv("DATABASE_URL")
+if not DEBUG and not database_url:
+    raise ImproperlyConfigured("DATABASE_URL must be configured in production so sessions and passkeys survive deployments.")
+
 DATABASES = {
     "default": dj_database_url.parse(
-        os.getenv("DATABASE_URL") or f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        database_url or f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
         conn_health_checks=True,
     )

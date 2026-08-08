@@ -148,8 +148,14 @@ function Login() {
       ...options,
       headers: { 'X-CSRFToken': decodeURIComponent(csrf), ...(options.headers || {}) }
     })
-    const payload = await response.json()
-    if (!response.ok) throw new Error(payload.detail || 'Passkey request failed.')
+    const body = await response.text()
+    let payload = {}
+    try {
+      payload = body ? JSON.parse(body) : {}
+    } catch {
+      throw new Error(`Passkey service returned an invalid response (${response.status}).`)
+    }
+    if (!response.ok) throw new Error(payload.detail || `Passkey request failed (${response.status}).`)
     return payload
   }
 
