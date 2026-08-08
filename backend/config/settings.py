@@ -12,7 +12,9 @@ FRONTEND_DIR = BASE_DIR.parent / "frontend"
 load_dotenv(BASE_DIR.parent / ".env")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "retentionpulse-local-secret-change-me")
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
-ALLOWED_HOSTS = [host for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,testserver").split(",") if host]
+configured_allowed_hosts = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,testserver").split(",") if host.strip()]
+render_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
+ALLOWED_HOSTS = [*configured_allowed_hosts, *([render_hostname] if render_hostname else [])]
 ROOT_URLCONF = "config.urls"
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
