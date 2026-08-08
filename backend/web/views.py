@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 import httpx
 from django.conf import settings
+from django.middleware.csrf import get_token
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.shortcuts import redirect, render
@@ -38,7 +39,7 @@ def landing(request: HttpRequest) -> HttpResponse:
 
 @ensure_csrf_cookie
 def csrf_bootstrap(request: HttpRequest) -> JsonResponse:
-    return JsonResponse({"ok": True})
+    return JsonResponse({"ok": True, "csrfToken": get_token(request)})
 
 
 def auth_session(request: HttpRequest) -> JsonResponse:

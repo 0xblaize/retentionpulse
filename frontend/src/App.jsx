@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowUpRight, CheckCircle2, CircleAlert, LogOut, Upload, X } from 'lucide-react'
-import { analyzeVideo, authRoutes, bootstrapCsrf, getSession, logout } from './api'
+import { analyzeVideo, authRoutes, bootstrapCsrf, djangoUrl, getSession, logout } from './api'
 
 const VIDEO_URL = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260517_222138_3e3205be-3364-417b-a64a-bfe087acbec4.mp4'
 const navItems = ['Story', 'Analysis', 'Workflow', 'Feedback']
@@ -142,11 +142,12 @@ function Login() {
   const [error, setError] = useState('')
 
   const request = async (path, options = {}) => {
-    const csrf = document.cookie.split('; ').find((cookie) => cookie.startsWith('csrftoken='))?.split('=')[1] || ''
-    const response = await fetch(path, {
-      credentials: 'same-origin',
-      ...options,
-      headers: { 'X-CSRFToken': decodeURIComponent(csrf), ...(options.headers || {}) }
+    const { csrfToken, ...fetchOptions } = options
+    const cookieToken = document.cookie.split('; ').find((cookie) => cookie.startsWith('csrftoken='))?.split('=')[1] || ''
+    const response = await fetch(djangoUrl(path), {
+      credentials: 'include',
+      ...fetchOptions,
+      headers: { 'X-CSRFToken': decodeURIComponent(csrfToken || cookieToken), ...(fetchOptions.headers || {}) }
     })
     const body = await response.text()
     let payload = {}
@@ -164,12 +165,14 @@ function Login() {
     setError('')
     try {
       if (!window.PublicKeyCredential || !navigator.credentials) throw new Error('This browser does not support passkeys.')
-      await fetch('/api/auth/csrf/', { credentials: 'same-origin' })
+      const csrfResponse = await fetch(djangoUrl('/api/auth/csrf/'), { credentials: 'include' })
+      const csrfPayload = await csrfResponse.json()
+      if (!csrfResponse.ok || !csrfPayload.csrfToken) throw new Error('Could not initialize secure passkey requests.')
       const optionsPath = mode === 'register' ? '/api/auth/passkey/register/options/' : '/api/auth/passkey/authenticate/options/'
       const verifyPath = mode === 'register' ? '/api/auth/passkey/register/verify/' : '/api/auth/passkey/authenticate/verify/'
-      const options = decodeWebAuthnOptions(await request(optionsPath, { method: 'POST' }))
+      const options = decodeWebAuthnOptions(await request(optionsPath, { method: 'POST', csrfToken: csrfPayload.csrfToken }))
       const credential = mode === 'register' ? await navigator.credentials.create({ publicKey: options }) : await navigator.credentials.get({ publicKey: options })
-      await request(verifyPath, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(webauthnCredentialPayload(credential)) })
+      await request(verifyPath, { method: 'POST', csrfToken: csrfPayload.csrfToken, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(webauthnCredentialPayload(credential)) })
       window.location.href = '/dashboard/'
     } catch (err) {
       setError(err.message)
