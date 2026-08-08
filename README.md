@@ -289,7 +289,7 @@ The response includes legacy fields plus the structured diagnostic fields:
 
 ## Render deployment
 
-`render.yaml` provisions separate Docker services. In the Render dashboard, leave **Root Directory** blank (the repository root); the Blueprint explicitly sets the Docker build context to `./backend`.
+`render.yaml` provisions separate Docker services. In the Render dashboard, leave **Root Directory** blank (the repository root). For a service created manually, set **Docker Context** to `.`, **Dockerfile Path** to `backend/Dockerfile.api` for the API service or `backend/Dockerfile.django` for Django. The root-level `Dockerfile` is also provided as a fallback for Render services that still use the default Dockerfile path; it starts the FastAPI analysis service.
 
 
 - `retentionpulse-api` includes FFmpeg and optional multimodal dependencies;
