@@ -1,4 +1,5 @@
 const djangoBase = import.meta.env.VITE_DJANGO_URL || ''
+let csrfTokenValue = ''
 
 export const authRoutes = {
   login: '/login/',
@@ -19,7 +20,7 @@ async function request(path, options = {}) {
     ...options,
     headers: {
       ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(options.method && options.method !== 'GET' ? { 'X-CSRFToken': decodeURIComponent(csrfToken()) } : {}),
+      ...(options.method && options.method !== 'GET' ? { 'X-CSRFToken': decodeURIComponent(csrfTokenValue || csrfToken()) } : {}),
       ...(options.headers || {})
     }
   })
@@ -41,7 +42,9 @@ async function request(path, options = {}) {
 }
 
 export async function bootstrapCsrf() {
-  return request('/api/auth/csrf/')
+  const payload = await request('/api/auth/csrf/')
+  csrfTokenValue = payload?.csrfToken || ''
+  return payload
 }
 
 export async function getSession() {
