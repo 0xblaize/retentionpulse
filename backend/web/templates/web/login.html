@@ -8,9 +8,13 @@
     <h1>Unlock your pulse.</h1>
     <p>Use a passkey to scan your edit securely.</p>
     <div class="error" id="passkey-error" role="alert" hidden></div>
+    <label class="passkey-name" for="passkey-name">
+      <span>Passkey name</span>
+      <input id="passkey-name" type="text" placeholder="My work laptop" />
+    </label>
     <button type="button" id="passkey-login">Continue with passkey</button>
     <button type="button" id="passkey-register" class="secondary-auth">Register this device</button>
-    <p class="auth-help">Passkeys require a supported browser. Registration is available for the first workspace device.</p>
+    <p class="auth-help">Passkeys require a supported browser. Registration is available for the first workspace device. The name you choose will appear in Google Password Manager and your device prompt.</p>
   </div>
 </main>
 <script>
@@ -19,6 +23,7 @@
   const errorBox = document.getElementById('passkey-error');
   const loginButton = document.getElementById('passkey-login');
   const registerButton = document.getElementById('passkey-register');
+  const nameInput = document.getElementById('passkey-name');
 
   function bytes(value) {
     const padded = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
@@ -63,7 +68,11 @@
   }
 
   async function register() {
-    const options = decodeOptions(await request('{% url "passkey-register-options" %}', { method: 'POST' }));
+    const options = decodeOptions(await request('{% url "passkey-register-options" %}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: nameInput.value.trim() })
+    }));
     const credential = await navigator.credentials.create({ publicKey: options });
     await request('{% url "passkey-register-verify" %}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credentialPayload(credential)) });
     window.location.href = dashboardUrl;

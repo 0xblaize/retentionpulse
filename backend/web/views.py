@@ -80,6 +80,24 @@ def _webauthn_error() -> JsonResponse:
     return JsonResponse({"detail": "Passkey support is not installed on the server."}, status=503)
 
 
+def _get_passkey_name(request: HttpRequest) -> str:
+    payload: Any = {}
+    if request.content_type == "application/json":
+        try:
+            payload = json.loads(request.body.decode("utf-8") or "{}")
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            payload = {}
+    elif request.POST:
+        payload = request.POST
+    if isinstance(payload, dict):
+        name = payload.get("name")
+        if isinstance(name, str):
+            name = name.strip()
+            if name:
+                return name
+    return settings.RETENTIONPULSE_RP_NAME or "RetentionPulse"
+
+
 @require_POST
 def passkey_register_options(request: HttpRequest) -> JsonResponse:
     api = _webauthn()
@@ -88,17 +106,19 @@ def passkey_register_options(request: HttpRequest) -> JsonResponse:
     if PasskeyCredential.objects.exists() and not request.session.get("authenticated", False):
         return JsonResponse({"detail": "A passkey is already registered for this workspace."}, status=403)
     user_handle = secrets.token_bytes(32)
+    display_name = _get_passkey_name(request)
     options = api["generate_registration_options"](
         rp_id=settings.RETENTIONPULSE_RP_ID,
         rp_name=settings.RETENTIONPULSE_RP_NAME,
         user_id=user_handle,
-        user_name="workspace-owner",
-        user_display_name="RetentionPulse workspace",
+        user_name=display_name,
+        user_display_name=display_name,
         authenticator_selection=api["AuthenticatorSelectionCriteria"](user_verification=api["UserVerificationRequirement"].REQUIRED),
         timeout=settings.RETENTIONPULSE_WEBAUTHN_TIMEOUT_MS,
     )
     request.session["passkey_registration_challenge"] = _b64(options.challenge)
     request.session["passkey_registration_user_handle"] = _b64(user_handle)
+    request.session["passkey_registration_name"] = display_name
     return JsonResponse(json.loads(api["options_to_json"](options)))
 
 
@@ -109,6 +129,7 @@ def passkey_register_verify(request: HttpRequest) -> JsonResponse:
         return _webauthn_error()
     challenge = request.session.pop("passkey_registration_challenge", None)
     user_handle = request.session.pop("passkey_registration_user_handle", None)
+    name = request.session.pop("passkey_registration_name", None)
     if not challenge or not user_handle:
         return JsonResponse({"detail": "Passkey registration expired. Start again."}, status=400)
     try:
@@ -124,6 +145,7 @@ def passkey_register_verify(request: HttpRequest) -> JsonResponse:
             credential_id=verification.credential_id,
             public_key=verification.credential_public_key,
             user_handle=_unb64(user_handle),
+            name=name or settings.RETENTIONPULSE_RP_NAME or "RetentionPulse",
             sign_count=verification.sign_count,
             transports=list(getattr(credential.response, "transports", None) or []),
         )

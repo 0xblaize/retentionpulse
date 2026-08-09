@@ -140,14 +140,17 @@ function decodeWebAuthnOptions(options) {
 function Login() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [passkeyName, setPasskeyName] = useState('')
 
   const request = async (path, options = {}) => {
     const { csrfToken, ...fetchOptions } = options
     const cookieToken = document.cookie.split('; ').find((cookie) => cookie.startsWith('csrftoken='))?.split('=')[1] || ''
+    const headers = { 'X-CSRFToken': decodeURIComponent(csrfToken || cookieToken), ...(fetchOptions.headers || {}) }
+    if (fetchOptions.body) headers['Content-Type'] = headers['Content-Type'] || 'application/json'
     const response = await fetch(djangoUrl(path), {
       credentials: 'include',
       ...fetchOptions,
-      headers: { 'X-CSRFToken': decodeURIComponent(csrfToken || cookieToken), ...(fetchOptions.headers || {}) }
+      headers
     })
     const body = await response.text()
     let payload = {}
@@ -170,7 +173,12 @@ function Login() {
       if (!csrfResponse.ok || !csrfPayload.csrfToken) throw new Error('Could not initialize secure passkey requests.')
       const optionsPath = mode === 'register' ? '/api/auth/passkey/register/options/' : '/api/auth/passkey/authenticate/options/'
       const verifyPath = mode === 'register' ? '/api/auth/passkey/register/verify/' : '/api/auth/passkey/authenticate/verify/'
-      const options = decodeWebAuthnOptions(await request(optionsPath, { method: 'POST', csrfToken: csrfPayload.csrfToken }))
+      const options = decodeWebAuthnOptions(await request(optionsPath, {
+        method: 'POST',
+        csrfToken: csrfPayload.csrfToken,
+        body: mode === 'register' ? JSON.stringify({ name: passkeyName.trim() }) : undefined,
+        headers: mode === 'register' ? { 'Content-Type': 'application/json' } : {}
+      }))
       const credential = mode === 'register' ? await navigator.credentials.create({ publicKey: options }) : await navigator.credentials.get({ publicKey: options })
       await request(verifyPath, { method: 'POST', csrfToken: csrfPayload.csrfToken, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(webauthnCredentialPayload(credential)) })
       window.location.href = '/dashboard/'
@@ -181,7 +189,7 @@ function Login() {
     }
   }
 
-  return <main className="flex min-h-screen items-center justify-center bg-[#f4f1ed] px-5 py-8 text-black sm:px-8"><section className="w-full max-w-lg rounded-3xl border border-black/10 bg-white/85 p-6 shadow-sm sm:p-10" aria-labelledby="login-heading"><a href="/" aria-label="Back to RetentionPulse home"><Logo /></a><p className="mt-10 text-xs font-semibold tracking-[0.2em] text-accent">RETENTIONPULSE / PRIVATE WORKSPACE</p><h1 id="login-heading" className="mt-3 text-4xl font-semibold tracking-[-0.05em] sm:text-5xl">Unlock your pulse.</h1><p className="mt-4 text-base normal-case tracking-normal text-black/65">Create a passkey for this workspace or continue with one already registered on this device.</p>{error && <p className="mt-5 rounded-xl bg-red-50 p-4 text-sm normal-case text-red-700" role="alert">{error}</p>}<div className="mt-8 grid gap-3"><button type="button" disabled={busy} onClick={() => run('authenticate')} className="rounded-full bg-black px-5 py-3 text-sm font-semibold tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-50">{busy ? 'Waiting for passkey…' : 'Continue with passkey'}</button><button type="button" disabled={busy} onClick={() => run('register')} className="rounded-full border border-black/15 px-5 py-3 text-sm font-semibold tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-50">Register this device</button></div><p className="mt-5 text-sm normal-case leading-relaxed tracking-normal text-black/55">Passkeys require a supported browser. Registration is available for the first workspace device.</p></section></main>
+  return <main className="flex min-h-screen items-center justify-center bg-[#f4f1ed] px-5 py-8 text-black sm:px-8"><section className="w-full max-w-lg rounded-3xl border border-black/10 bg-white/85 p-6 shadow-sm sm:p-10" aria-labelledby="login-heading"><a href="/" aria-label="Back to RetentionPulse home"><Logo /></a><p className="mt-10 text-xs font-semibold tracking-[0.2em] text-accent">RETENTIONPULSE / PRIVATE WORKSPACE</p><h1 id="login-heading" className="mt-3 text-4xl font-semibold tracking-[-0.05em] sm:text-5xl">Unlock your pulse.</h1><p className="mt-4 text-base normal-case tracking-normal text-black/65">Create a passkey for this workspace or continue with one already registered on this device.</p>{error && <p className="mt-5 rounded-xl bg-red-50 p-4 text-sm normal-case text-red-700" role="alert">{error}</p>}<div className="mt-8 rounded-2xl border border-black/10 bg-black/[0.02] p-4"><label className="flex flex-col gap-2 text-sm font-semibold tracking-[0.12em] text-black/70" htmlFor="passkey-name"><span>Passkey name</span><input id="passkey-name" type="text" value={passkeyName} onChange={(event) => setPasskeyName(event.target.value)} placeholder="My work laptop" className="rounded-full border border-black/15 bg-white px-4 py-3 text-sm font-normal normal-case tracking-normal text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-accent" /></label></div><div className="mt-4 grid gap-3"><button type="button" disabled={busy} onClick={() => run('authenticate')} className="rounded-full bg-black px-5 py-3 text-sm font-semibold tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-50">{busy ? 'Waiting for passkey…' : 'Continue with passkey'}</button><button type="button" disabled={busy} onClick={() => run('register')} className="rounded-full border border-black/15 px-5 py-3 text-sm font-semibold tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-50">Register this device</button></div><p className="mt-5 text-sm normal-case leading-relaxed tracking-normal text-black/55">Passkeys require a supported browser. Registration is available for the first workspace device. The name you choose will appear in Google Password Manager and your device prompt.</p></section></main>
 }
 
 function Dashboard() {

@@ -5,6 +5,7 @@ class PasskeyCredential(models.Model):
     credential_id = models.BinaryField(unique=True)
     public_key = models.BinaryField()
     user_handle = models.BinaryField(unique=True)
+    name = models.CharField(max_length=255, blank=True, default="")
     sign_count = models.PositiveBigIntegerField(default=0)
     transports = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -12,4 +13,4 @@ class PasskeyCredential(models.Model):
     disabled = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.user_handle.hex()
+        return self.name or self.user_handle.hex()
