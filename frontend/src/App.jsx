@@ -117,7 +117,7 @@ function webauthnBytes(value) {
 }
 
 function webauthnBase64url(buffer) {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '')
+  return btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 function webauthnCredentialPayload(credential) {
