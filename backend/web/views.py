@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
+from urllib.parse import urlparse
 
 from .models import PasskeyCredential
 
@@ -80,6 +81,23 @@ def _webauthn_error() -> JsonResponse:
     return JsonResponse({"detail": "Passkey support is not installed on the server."}, status=503)
 
 
+def _get_webauthn_origin(request: HttpRequest) -> str:
+    origin = request.META.get("HTTP_ORIGIN") or request.META.get("HTTP_REFERER") or ""
+    if origin:
+        parsed = urlparse(origin)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+    return settings.RETENTIONPULSE_ORIGIN
+
+
+def _get_webauthn_rp_id(request: HttpRequest) -> str:
+    origin = _get_webauthn_origin(request)
+    parsed = urlparse(origin)
+    if parsed.hostname:
+        return parsed.hostname
+    return settings.RETENTIONPULSE_RP_ID
+
+
 def _get_passkey_name(request: HttpRequest) -> str:
     payload: Any = {}
     if request.content_type == "application/json":
@@ -108,7 +126,7 @@ def passkey_register_options(request: HttpRequest) -> JsonResponse:
     user_handle = secrets.token_bytes(32)
     display_name = _get_passkey_name(request)
     options = api["generate_registration_options"](
-        rp_id=settings.RETENTIONPULSE_RP_ID,
+        rp_id=_get_webauthn_rp_id(request),
         rp_name=settings.RETENTIONPULSE_RP_NAME,
         user_id=user_handle,
         user_name=display_name,
@@ -137,8 +155,8 @@ def passkey_register_verify(request: HttpRequest) -> JsonResponse:
         verification = api["verify_registration_response"](
             credential=credential,
             expected_challenge=_unb64(challenge),
-            expected_rp_id=settings.RETENTIONPULSE_RP_ID,
-            expected_origin=settings.RETENTIONPULSE_ORIGIN,
+            expected_rp_id=_get_webauthn_rp_id(request),
+            expected_origin=_get_webauthn_origin(request),
             require_user_verification=True,
         )
         PasskeyCredential.objects.create(
@@ -149,8 +167,8 @@ def passkey_register_verify(request: HttpRequest) -> JsonResponse:
             sign_count=verification.sign_count,
             transports=list(getattr(credential.response, "transports", None) or []),
         )
-    except Exception:
-        return JsonResponse({"detail": "The passkey registration could not be verified."}, status=400)
+    except Exception as exc:
+        return JsonResponse({"detail": f"The passkey registration could not be verified: {exc}"}, status=400)
     request.session.cycle_key()
     request.session["authenticated"] = True
     return JsonResponse({"authenticated": True})
@@ -166,7 +184,7 @@ def passkey_auth_options(request: HttpRequest) -> JsonResponse:
         for credential in PasskeyCredential.objects.filter(disabled=False)
     ]
     options = api["generate_authentication_options"](
-        rp_id=settings.RETENTIONPULSE_RP_ID,
+        rp_id=_get_webauthn_rp_id(request),
         allow_credentials=credentials or None,
         user_verification=api["UserVerificationRequirement"].REQUIRED,
         timeout=settings.RETENTIONPULSE_WEBAUTHN_TIMEOUT_MS,
@@ -189,8 +207,8 @@ def passkey_auth_verify(request: HttpRequest) -> JsonResponse:
         verification = api["verify_authentication_response"](
             credential=credential,
             expected_challenge=_unb64(challenge),
-            expected_rp_id=settings.RETENTIONPULSE_RP_ID,
-            expected_origin=settings.RETENTIONPULSE_ORIGIN,
+            expected_rp_id=_get_webauthn_rp_id(request),
+            expected_origin=_get_webauthn_origin(request),
             credential_public_key=bytes(stored.public_key),
             credential_current_sign_count=stored.sign_count,
             require_user_verification=True,

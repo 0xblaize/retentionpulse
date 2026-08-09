@@ -54,7 +54,8 @@
   }
 
   async function request(url, options = {}) {
-    const response = await fetch(url, { credentials: 'same-origin', headers: { 'X-CSRFToken': csrfToken, ...(options.headers || {}) }, ...options });
+    const headers = { 'X-CSRFToken': csrfToken, ...(options.headers || {}) };
+    const response = await fetch(url, { credentials: 'same-origin', ...options, headers });
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || 'Passkey request failed.');
     return data;

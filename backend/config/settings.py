@@ -14,7 +14,7 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "retentionpulse-local-secret-change-
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
 configured_allowed_hosts = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,testserver").split(",") if host.strip()]
 render_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
-ALLOWED_HOSTS = [*configured_allowed_hosts, *([render_hostname] if render_hostname else [])]
+ALLOWED_HOSTS = [*configured_allowed_hosts, "testserver", *([render_hostname] if render_hostname else [])]
 ROOT_URLCONF = "config.urls"
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
