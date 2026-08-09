@@ -121,11 +121,19 @@ function webauthnBase64url(buffer) {
 }
 
 function webauthnCredentialPayload(credential) {
+  const response = credential.response
+  const payload = {
+    clientDataJSON: webauthnBase64url(response.clientDataJSON)
+  }
+  if ('attestationObject' in response) payload.attestationObject = webauthnBase64url(response.attestationObject)
+  if ('authenticatorData' in response) payload.authenticatorData = webauthnBase64url(response.authenticatorData)
+  if ('signature' in response) payload.signature = webauthnBase64url(response.signature)
+  if ('userHandle' in response && response.userHandle) payload.userHandle = webauthnBase64url(response.userHandle)
   return {
     id: credential.id,
     rawId: webauthnBase64url(credential.rawId),
     type: credential.type,
-    response: Object.fromEntries(Object.entries(credential.response).map(([key, value]) => [key, value instanceof ArrayBuffer ? webauthnBase64url(value) : value]))
+    response: payload
   }
 }
 

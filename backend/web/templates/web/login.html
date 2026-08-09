@@ -45,12 +45,13 @@
   }
 
   function credentialPayload(credential) {
-    return {
-      id: credential.id,
-      rawId: base64url(credential.rawId),
-      type: credential.type,
-      response: Object.fromEntries(Object.entries(credential.response).map(([key, value]) => [key, value instanceof ArrayBuffer ? base64url(value) : value]))
-    };
+    const response = credential.response;
+    const payload = { clientDataJSON: base64url(response.clientDataJSON) };
+    if ('attestationObject' in response) payload.attestationObject = base64url(response.attestationObject);
+    if ('authenticatorData' in response) payload.authenticatorData = base64url(response.authenticatorData);
+    if ('signature' in response) payload.signature = base64url(response.signature);
+    if ('userHandle' in response && response.userHandle) payload.userHandle = base64url(response.userHandle);
+    return { id: credential.id, rawId: base64url(credential.rawId), type: credential.type, response: payload };
   }
 
   async function request(url, options = {}) {
