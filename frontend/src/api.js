@@ -15,12 +15,16 @@ function csrfToken() {
 }
 
 async function request(path, options = {}) {
+  const method = options.method || 'GET'
+  const isFormData = options.body instanceof FormData
+  const token = decodeURIComponent(csrfTokenValue || csrfToken())
+  if (isFormData && method !== 'GET' && token) options.body.append('csrfmiddlewaretoken', token)
   const response = await fetch(djangoUrl(path), {
     credentials: djangoBase ? 'include' : 'same-origin',
     ...options,
     headers: {
-      ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(options.method && options.method !== 'GET' ? { 'X-CSRFToken': decodeURIComponent(csrfTokenValue || csrfToken()) } : {}),
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(method !== 'GET' && !isFormData ? { 'X-CSRFToken': token } : {}),
       ...(options.headers || {})
     }
   })
