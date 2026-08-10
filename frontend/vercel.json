@@ -5,14 +5,6 @@
       "destination": "https://retentionpulse-django.onrender.com/api/:path*"
     },
     {
-      "source": "/login/:path*",
-      "destination": "https://retentionpulse-django.onrender.com/login/:path*"
-    },
-    {
-      "source": "/dashboard/:path*",
-      "destination": "https://retentionpulse-django.onrender.com/dashboard/:path*"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
