@@ -88,13 +88,17 @@ def sample_video(video_path: str | Path, interval_seconds: float = 0.5) -> tuple
         raise ValueError("Video has no readable duration")
 
     samples: list[FrameSample] = []
-    timestamp = 0.0
-    while timestamp < duration:
-        capture.set(cv2.CAP_PROP_POS_MSEC, timestamp * 1000.0)
+    next_timestamp = 0.0
+    frame_index = 0
+    while next_timestamp < duration:
         success, frame = capture.read()
-        if success:
-            samples.append(FrameSample(timestamp, normalize_frame(frame)))
-        timestamp += interval_seconds
+        if not success:
+            break
+        timestamp = frame_index / fps
+        if timestamp + (1 / fps) >= next_timestamp:
+            samples.append(FrameSample(next_timestamp, normalize_frame(frame)))
+            next_timestamp += interval_seconds
+        frame_index += 1
     capture.release()
 
     if len(samples) < 2:

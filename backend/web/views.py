@@ -247,11 +247,12 @@ def dashboard(request: HttpRequest) -> HttpResponse:
 
 
 def _forward_analysis(video: Any, mode: str = "auto") -> tuple[int, dict[str, Any]]:
+    timeout = 60.0 if mode in {"fast_preview", "visual"} else 180.0
     response = httpx.post(
         f"{settings.RETENTIONPULSE_API_URL}/analyze",
         files={"video": (video.name, video.file, video.content_type or "application/octet-stream")},
         data={"mode": mode},
-        timeout=httpx.Timeout(180.0, connect=10.0),
+        timeout=httpx.Timeout(timeout, connect=10.0),
     )
     try:
         payload = response.json()

@@ -59,7 +59,7 @@ export async function logout() {
   return request('/api/auth/logout/', { method: 'POST' })
 }
 
-export async function analyzeVideo(file, signal, mode = 'auto') {
+export async function analyzeVideo(file, signal, mode = 'fast_preview') {
   const body = new FormData()
   body.append('video', file)
   body.append('mode', mode)

@@ -18,6 +18,7 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 MAX_UPLOAD_BYTES = int(os.getenv("RETENTIONPULSE_MAX_UPLOAD_BYTES", str(250 * 1024 * 1024)))
 SUPPORTED_EXTENSIONS = {".mp4", ".mov", ".m4v"}
 SUPPORTED_CONTENT_TYPES = {"video/mp4", "video/quicktime", "video/x-m4v", "application/octet-stream"}
+SUPPORTED_MODES = {"fast_preview", "visual", "multimodal", "auto"}
 
 app = FastAPI(title="RetentionPulse Analysis API", version="1.0.0")
 
@@ -55,6 +56,8 @@ async def analyze(video: UploadFile = File(...), mode: str = Form("auto")) -> An
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Supported video types are MP4, MOV, and M4V.")
     if video.content_type and video.content_type not in SUPPORTED_CONTENT_TYPES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The uploaded file is not a supported video type.")
+    if mode not in SUPPORTED_MODES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Analysis mode must be fast_preview, visual, multimodal, or auto.")
 
     temporary_path: str | None = None
     total = 0
@@ -66,8 +69,6 @@ async def analyze(video: UploadFile = File(...), mode: str = Form("auto")) -> An
                 if total > MAX_UPLOAD_BYTES:
                     raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="The video exceeds the upload limit.")
                 temporary_file.write(chunk)
-        if mode not in {"visual", "multimodal", "auto"}:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Analysis mode must be visual, multimodal, or auto.")
         payload = await run_in_threadpool(_analyze, temporary_path, mode)
         return AnalysisResponse.model_validate(payload)
     except HTTPException:

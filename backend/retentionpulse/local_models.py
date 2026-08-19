@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import os
+import threading
 from pathlib import Path
 from typing import Any
+
+
+_model_lock = threading.Lock()
+_whisper_cache: dict[tuple[str, str, str, str], Any] = {}
+_embedding_cache: dict[tuple[str], tuple[Any, Any]] = {}
 
 
 def model_readiness() -> dict[str, bool]:
@@ -24,8 +30,16 @@ def transcribe_local(audio_path: str | Path) -> tuple[list[dict[str, Any]], list
         from faster_whisper import WhisperModel
     except ImportError:
         return [], ["faster-whisper is not installed; transcription is unavailable."]
+    device = os.getenv("RETENTIONPULSE_WHISPER_DEVICE", "cpu")
+    compute_type = os.getenv("RETENTIONPULSE_WHISPER_COMPUTE_TYPE", "int8")
+    cache_root = os.getenv("RETENTIONPULSE_MODEL_CACHE", "./model-cache")
+    key = (model_name, device, compute_type, cache_root)
     try:
-        model = WhisperModel(model_name, device=os.getenv("RETENTIONPULSE_WHISPER_DEVICE", "cpu"), compute_type=os.getenv("RETENTIONPULSE_WHISPER_COMPUTE_TYPE", "int8"), download_root=os.getenv("RETENTIONPULSE_MODEL_CACHE", "./model-cache"))
+        with _model_lock:
+            model = _whisper_cache.get(key)
+            if model is None:
+                model = WhisperModel(model_name, device=device, compute_type=compute_type, download_root=cache_root)
+                _whisper_cache[key] = model
         segments, _ = model.transcribe(str(audio_path), word_timestamps=True, vad_filter=True)
         transcript = []
         for segment in segments:
@@ -47,9 +61,15 @@ def embed_text_and_frames(text: str, frames: list[Any]) -> tuple[list[float] | N
     except ImportError:
         return None, [], ["The local CLIP dependencies are not installed; semantic drift is unavailable."]
     try:
-        processor = AutoProcessor.from_pretrained(model_name, local_files_only=True)
-        model = AutoModel.from_pretrained(model_name, local_files_only=True)
-        model.eval()
+        with _model_lock:
+            cached = _embedding_cache.get((model_name,))
+            if cached is None:
+                processor = AutoProcessor.from_pretrained(model_name, local_files_only=True)
+                model = AutoModel.from_pretrained(model_name, local_files_only=True)
+                model.eval()
+                _embedding_cache[(model_name,)] = (processor, model)
+            else:
+                processor, model = cached
         images = [Image.fromarray(frame if getattr(frame, "ndim", 2) == 2 else frame[:, :, ::-1]) for frame in frames]
         text_inputs = processor(text=[text], return_tensors="pt", padding=True)
         image_inputs = processor(images=images, return_tensors="pt")

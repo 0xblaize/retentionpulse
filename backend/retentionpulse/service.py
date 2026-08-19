@@ -10,8 +10,8 @@ from .suggestions import generate_repair_suggestions
 
 
 def analyze_video_json(video_path: str | Path, *, mode: str = "auto") -> dict[str, Any]:
-    if mode not in {"visual", "multimodal", "auto"}:
-        raise ValueError("Analysis mode must be visual, multimodal, or auto.")
+    if mode not in {"fast_preview", "visual", "multimodal", "auto"}:
+        raise ValueError("Analysis mode must be fast_preview, visual, multimodal, or auto.")
     result = analyze_video(video_path)
     suggestions = generate_repair_suggestions(result.static_segments)
     risk_seconds = sum(segment.duration for segment in result.static_segments)
@@ -46,7 +46,7 @@ def analyze_video_json(video_path: str | Path, *, mode: str = "auto") -> dict[st
         for sample, score in zip(result.samples, result.motion_scores)
     ]
     multimodal_payload: dict[str, Any] = {}
-    if mode != "visual":
+    if mode not in {"fast_preview", "visual"}:
         multimodal_payload = analyze_multimodal(video_path, result)
 
     payload: dict[str, Any] = {
@@ -58,20 +58,23 @@ def analyze_video_json(video_path: str | Path, *, mode: str = "auto") -> dict[st
         "suggestions": suggestion_payload,
         "ai_repair_plan": None,
         "timeline": timeline,
+        "mode": mode,
+        "capabilities": {"visual": True, "audio": bool(multimodal_payload.get("speech_metrics")), "embeddings": bool(multimodal_payload.get("timeline_zones"))},
         **multimodal_payload,
     }
-    try:
-        payload["ai_repair_plan"] = generate_ai_repair_plan(
-            duration=result.duration,
-            risk_seconds=risk_seconds,
-            health_score=health_score,
-            segments=segments,
-            suggestions=suggestion_payload,
-            transcript=multimodal_payload.get("transcript", []),
-            speech_metrics=multimodal_payload.get("speech_metrics"),
-            timeline_zones=multimodal_payload.get("timeline_zones", []),
-            remediation_actions=multimodal_payload.get("remediation_actions", []),
-        )
-    except Exception:
-        payload["ai_repair_plan"] = None
+    if mode not in {"fast_preview", "visual"}:
+        try:
+            payload["ai_repair_plan"] = generate_ai_repair_plan(
+                duration=result.duration,
+                risk_seconds=risk_seconds,
+                health_score=health_score,
+                segments=segments,
+                suggestions=suggestion_payload,
+                transcript=multimodal_payload.get("transcript", []),
+                speech_metrics=multimodal_payload.get("speech_metrics"),
+                timeline_zones=multimodal_payload.get("timeline_zones", []),
+                remediation_actions=multimodal_payload.get("remediation_actions", []),
+            )
+        except Exception:
+            payload["ai_repair_plan"] = None
     return payload
