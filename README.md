@@ -6,7 +6,7 @@
 
 [![Status](https://img.shields.io/badge/status-hackathon%20build-5E0ED7)](#status)
 [![Frontend](https://img.shields.io/badge/frontend-React%20%2B%20Vite-61DAFB)](#architecture)
-[![Backend](https://img.shields.io/badge/backend-Django%20%2B%20FastAPI-0C4B33)](#architecture)
+[![Backend](https://img.shields.io/badge/backend-FastAPI-0C4B33)](#architecture)
 [![Analysis](https://img.shields.io/badge/analysis-offline--first-111111)](#how-it-works)
 
 ## The problem
@@ -118,8 +118,7 @@ The visualization uses text labels and status markers in addition to color, with
 ## Architecture
 
 - **React + Vite** — responsive landing page and authenticated analysis dashboard.
-- **Django** — passkeys, sessions, CSRF protection, dashboard access, and upload proxying.
-- **FastAPI** — video validation, temporary-file lifecycle, and CPU-heavy analysis in a worker thread.
+- **FastAPI** — passkeys, signed sessions, CSRF protection, video validation, temporary-file lifecycle, and CPU-heavy analysis in a worker thread.
 - **OpenCV + NumPy** — deterministic frame sampling and motion analysis.
 - **FFmpeg** — optional audio extraction and normalized mono 16 kHz WAV generation.
 - **faster-whisper** — optional local transcription with segment and word timestamps.
@@ -194,22 +193,14 @@ Keep the API key server-side. Never place it in React source code or expose it t
 
 ### 3. Start the services
 
-Terminal 1 — FastAPI analysis service:
+Terminal 1 — FastAPI service:
 
 ```bash
 cd backend
-uvicorn retentionpulse_api.main:app --host 127.0.0.1 --port 8001
+uvicorn retentionpulse_api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Terminal 2 — Django browser/API layer:
-
-```bash
-cd backend
-python manage.py migrate
-python manage.py runserver 127.0.0.1:8000
-```
-
-Terminal 3 — React frontend:
+Terminal 2 — React frontend:
 
 ```bash
 cd frontend
@@ -219,9 +210,8 @@ npm run dev
 Open:
 
 - React landing page: `http://127.0.0.1:5173/`
-- Django login/dashboard: `http://127.0.0.1:8000/`
-- FastAPI health: `http://127.0.0.1:8001/health`
-- FastAPI multimodal readiness: `http://127.0.0.1:8001/health/multimodal`
+- FastAPI health: `http://127.0.0.1:8000/health`
+- FastAPI multimodal readiness: `http://127.0.0.1:8000/health/multimodal`
 
 ## Offline and fallback behavior
 
@@ -289,12 +279,12 @@ The response includes legacy fields plus the structured diagnostic fields:
 
 ## Render deployment
 
-`render.yaml` provisions separate Docker services. For the declarative setup, leave **Root Directory** blank, use `backend` as each service's **Docker Context**, and use `Dockerfile.api` or `Dockerfile.django` as the Dockerfile path inside that context. For a service created manually from the repository root, use `backend` as the Docker context and `backend/Dockerfile.api` or `backend/Dockerfile.django` as the Dockerfile path. The root-level `Dockerfile` is also provided as a fallback for Render services that still use the default Dockerfile path; it starts the FastAPI analysis service.
+`render.yaml` provisions one FastAPI Docker service. For the declarative setup, leave **Root Directory** blank, use `backend` as the Docker Context, and use `Dockerfile.api` as the Dockerfile path inside that context. The root-level `Dockerfile` is also provided as a fallback for Render services that still use the default Dockerfile path.
 
 
 - `retentionpulse-api` includes FFmpeg and optional multimodal dependencies;
-- `retentionpulse-django` stays lightweight and handles browser/session traffic;
-- the API receives a persistent `/app/model-cache` disk;
+- the API handles browser sessions, passkeys, uploads, and analysis;
+- the API receives persistent `/app/model-cache` and `/app/data` disks;
 - the frontend remains deployable separately, such as through Vercel.
 
 On Render, set the following environment variables in the appropriate service:
@@ -321,7 +311,7 @@ Do not commit `.env`, API keys, or model weights.
 
 ## Passkeys and security
 
-Django owns passkey registration and authentication. The first workspace device can select **Register this device** on `/login/`; later visits use **Continue with passkey**. The server verifies the WebAuthn challenge, relying-party ID, origin, signature, user verification, and signature counter before creating a Django session.
+FastAPI owns passkey registration and authentication. The first workspace device can select **Register this device** on `/login/`; later visits use **Continue with passkey**. The server verifies the WebAuthn challenge, relying-party ID, origin, signature, user verification, and signature counter before creating a signed session.
 
 Local development uses:
 
@@ -333,7 +323,7 @@ RETENTIONPULSE_RP_NAME=RetentionPulse
 
 Production passkeys require HTTPS. For deployment, use the public frontend hostname for both `RETENTIONPULSE_RP_ID` and `RETENTIONPULSE_ORIGIN`, not the Render backend hostname. Set `RETENTIONPULSE_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, and `CSRF_TRUSTED_ORIGINS` to that same public frontend origin.
 
-When the frontend is deployed to Vercel, keep `VITE_DJANGO_URL` empty in the production environment. The frontend uses same-origin `/login/`, `/dashboard/`, and `/api/` paths, while `frontend/vercel.json` proxies those paths to Django on Render. This keeps the browser on the public frontend hostname during passkey login and Analyze flows. If you use a custom frontend domain, replace `retentionpulse.vercel.app` in both `render.yaml` and the Vercel rewrite destination configuration as appropriate.
+When the frontend is deployed to Vercel, keep `VITE_API_URL` empty in the production environment. The frontend uses same-origin `/login/`, `/dashboard/`, and `/api/` paths, while `frontend/vercel.json` proxies `/api/` to FastAPI on Render. This keeps the browser on the public frontend hostname during passkey login and Analyze flows. If you use a custom frontend domain, replace `retentionpulse.vercel.app` in both `render.yaml` and the Vercel rewrite destination configuration as appropriate.
 
 ## Detection assumptions and limitations
 
@@ -353,7 +343,6 @@ Backend tests:
 ```bash
 cd backend
 python -m pytest -q
-python manage.py check
 python -m compileall -q retentionpulse retentionpulse_api tests
 ```
 
@@ -364,7 +353,7 @@ cd frontend
 npm run build
 ```
 
-The test suite covers deterministic analysis, multimodal fallback behavior, LLM provider failures, prompt evidence, API validation, and Django integration behavior.
+The test suite covers deterministic analysis, multimodal fallback behavior, LLM provider failures, prompt evidence, API validation, authentication, and protected FastAPI routes.
 
 ## Project status
 
@@ -374,6 +363,6 @@ RetentionPulse is a working hackathon build focused on a reliable diagnostic loo
 - optional audio and shared multimodal analysis are capability-aware;
 - optional Groq repair-plan generation is isolated from the scoring path;
 - the dashboard presents a video preview, retention heatmap, diagnostics, and JSON export;
-- Render configuration separates the heavy analysis service from the Django web layer.
+- Render configuration deploys one FastAPI service for authentication and analysis.
 
 The next product step is downstream edit execution: turning remediation actions into editor integrations or carefully controlled FFmpeg operations.

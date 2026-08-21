@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowUpRight, CheckCircle2, CircleAlert, LogOut, Upload, X } from 'lucide-react'
-import { analyzeVideo, authRoutes, bootstrapCsrf, djangoUrl, getSession, logout } from './api'
+import { analyzeVideo, apiUrl, authRoutes, bootstrapCsrf, getSession, logout } from './api'
 
 const VIDEO_URL = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260517_222138_3e3205be-3364-417b-a64a-bfe087acbec4.mp4'
 const navItems = ['Story', 'Analysis', 'Workflow', 'Feedback']
@@ -155,7 +155,7 @@ function Login() {
     const cookieToken = document.cookie.split('; ').find((cookie) => cookie.startsWith('csrftoken='))?.split('=')[1] || ''
     const headers = { 'X-CSRFToken': decodeURIComponent(csrfToken || cookieToken), ...(fetchOptions.headers || {}) }
     if (fetchOptions.body) headers['Content-Type'] = headers['Content-Type'] || 'application/json'
-    const response = await fetch(djangoUrl(path), {
+    const response = await fetch(apiUrl(path), {
       credentials: 'include',
       ...fetchOptions,
       headers
@@ -176,7 +176,7 @@ function Login() {
     setError('')
     try {
       if (!window.PublicKeyCredential || !navigator.credentials) throw new Error('This browser does not support passkeys.')
-      const csrfResponse = await fetch(djangoUrl('/api/auth/csrf/'), { credentials: 'include' })
+      const csrfResponse = await fetch(apiUrl('/api/auth/csrf/'), { credentials: 'include' })
       const csrfPayload = await csrfResponse.json()
       if (!csrfResponse.ok || !csrfPayload.csrfToken) throw new Error('Could not initialize secure passkey requests.')
       const optionsPath = mode === 'register' ? '/api/auth/passkey/register/options/' : '/api/auth/passkey/authenticate/options/'

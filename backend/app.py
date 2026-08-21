@@ -127,7 +127,7 @@ def render_landing() -> None:
 def render_login() -> None:
     st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
     render_brand()
-    st.markdown("<h1>Unlock your pulse.</h1><p>Passkeys are handled by the Django app for secure workspace access.</p>", unsafe_allow_html=True)
+    st.markdown("<h1>Unlock your pulse.</h1><p>Passkeys are handled by the FastAPI service.</p>", unsafe_allow_html=True)
     st.link_button("Open passkey login", "http://127.0.0.1:8000/login/", use_container_width=True)
     st.caption("The Streamlit fallback does not collect passwords or passcodes.")
     st.markdown("</div>", unsafe_allow_html=True)

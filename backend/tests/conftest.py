@@ -1,7 +1,7 @@
-import os
+from retentionpulse_api.main import app
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+from fastapi.testclient import TestClient
 
-import django
 
-django.setup()
+def client():
+	return TestClient(app)

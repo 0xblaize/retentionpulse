@@ -1,4 +1,4 @@
-const djangoBase = import.meta.env.VITE_DJANGO_URL || ''
+const apiBase = import.meta.env.VITE_API_URL || ''
 let csrfTokenValue = ''
 
 export const authRoutes = {
@@ -6,8 +6,8 @@ export const authRoutes = {
   dashboard: '/dashboard/'
 }
 
-export function djangoUrl(path) {
-  return `${djangoBase}${path}`
+export function apiUrl(path) {
+  return `${apiBase}${path}`
 }
 
 function csrfToken() {
@@ -19,8 +19,8 @@ async function request(path, options = {}) {
   const isFormData = options.body instanceof FormData
   const token = decodeURIComponent(csrfTokenValue || csrfToken())
   if (isFormData && method !== 'GET' && token) options.body.append('csrfmiddlewaretoken', token)
-  const response = await fetch(djangoUrl(path), {
-    credentials: djangoBase ? 'include' : 'same-origin',
+  const response = await fetch(apiUrl(path), {
+    credentials: apiBase ? 'include' : 'same-origin',
     ...options,
     headers: {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
