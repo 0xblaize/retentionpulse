@@ -6,6 +6,7 @@ function friendlyError(payload, status) {
   if (status === 422) return new Error(payload?.detail || 'This video could not be analyzed. Try another file or a shorter export.')
   if (status === 401) return new Error('Your workspace session has expired. Please sign in again.')
   if (status === 403) return new Error('This secure request could not be verified. Refresh the page and try again.')
+  if (status === 504) return new Error('Analysis took too long. Try a shorter or smaller video.')
   return new Error(payload?.detail || payload?.error || 'The request could not be completed. Please try again.')
 }
 
@@ -71,5 +72,17 @@ export async function analyzeVideo(file, signal, mode = 'fast_preview') {
   const body = new FormData()
   body.append('video', file)
   body.append('mode', mode)
-  return request('/api/analyze/', { method: 'POST', body, signal })
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 240000)
+  const cancel = () => controller.abort()
+  signal?.addEventListener('abort', cancel, { once: true })
+  try {
+    return await request('/api/analyze/', { method: 'POST', body, signal: controller.signal })
+  } catch (error) {
+    if (error.name === 'AbortError' && !signal?.aborted) throw new Error('Analysis took too long. Try a shorter or smaller video.')
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
+    signal?.removeEventListener('abort', cancel)
+  }
 }

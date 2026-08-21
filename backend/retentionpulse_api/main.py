@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+import asyncio
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -74,7 +75,10 @@ async def analyze(video: UploadFile = File(...), mode: str = Form("auto")) -> An
                 if total > MAX_UPLOAD_BYTES:
                     raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="The video exceeds the upload limit.")
                 temporary_file.write(chunk)
-        payload = await run_in_threadpool(_analyze, temporary_path, mode)
+        try:
+            payload = await asyncio.wait_for(run_in_threadpool(_analyze, temporary_path, mode), timeout=240)
+        except asyncio.TimeoutError as error:
+            raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Analysis took too long. Try a shorter or smaller video.") from error
         return AnalysisResponse.model_validate(payload)
     except HTTPException:
         raise
