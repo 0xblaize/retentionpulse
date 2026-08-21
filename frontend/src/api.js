@@ -77,7 +77,15 @@ export async function analyzeVideo(file, signal, mode = 'fast_preview') {
   const cancel = () => controller.abort()
   signal?.addEventListener('abort', cancel, { once: true })
   try {
-    return await request('/api/analyze/', { method: 'POST', body, signal: controller.signal })
+    const job = await request('/api/analyze/jobs/', { method: 'POST', body, signal: controller.signal })
+    const deadline = Date.now() + 240000
+    while (true) {
+      if (signal?.aborted) throw new DOMException('Request aborted', 'AbortError')
+      if (Date.now() >= deadline) throw new Error('Analysis is taking too long. Try a shorter or smaller video.')
+      await new Promise((resolve) => window.setTimeout(resolve, 1000))
+      const status = await request(`/api/analyze/jobs/${job.jobId}`)
+      if (status.status === 'complete') return status.result
+    }
   } catch (error) {
     if (error.name === 'AbortError' && !signal?.aborted) throw new Error('Analysis took too long. Try a shorter or smaller video.')
     throw error
