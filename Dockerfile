@@ -8,8 +8,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY backend/requirements.txt backend/requirements-multimodal.txt ./
-RUN pip install --no-cache-dir -r requirements.txt -r requirements-multimodal.txt
+COPY backend/requirements-api.txt ./
+RUN pip install --no-cache-dir -r requirements-api.txt
 COPY backend/ ./
 
 CMD ["uvicorn", "retentionpulse_api.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -282,7 +282,7 @@ The response includes legacy fields plus the structured diagnostic fields:
 `render.yaml` provisions one FastAPI Docker service. For the declarative setup, leave **Root Directory** blank, use `backend` as the Docker Context, and use `Dockerfile.api` as the Dockerfile path inside that context. The root-level `Dockerfile` is also provided as a fallback for Render services that still use the default Dockerfile path.
 
 
-- `retentionpulse-api` includes FFmpeg and optional multimodal dependencies;
+- `retentionpulse-api` includes FFmpeg and core video-analysis dependencies;
 - the API handles browser sessions, passkeys, uploads, and analysis;
 - the API receives persistent `/app/model-cache` and `/app/data` disks;
 - the frontend remains deployable separately, such as through Vercel.
@@ -298,6 +298,8 @@ RETENTIONPULSE_EMBEDDING_MODEL=/app/model-cache/siglip-so400m
 ```
 
 Provision the model directories before expecting transcription or semantic alignment. If they are absent, the API reports capability warnings and safely falls back to the available diagnostics.
+
+The production API image installs only FastAPI, OpenCV, and the core runtime dependencies. The optional multimodal packages in `requirements-multimodal.txt` are intentionally excluded from the default image so deployments build faster; install them only when local model inference is required.
 
 For a Groq repair plan on Render, configure the API service with:
 
