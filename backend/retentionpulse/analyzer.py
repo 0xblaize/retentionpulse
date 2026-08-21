@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import Sequence
 
 import cv2
 import numpy as np
+
+
+MAX_VIDEO_SECONDS = float(os.getenv("RETENTIONPULSE_MAX_VIDEO_SECONDS", "300"))
 
 
 @dataclass(frozen=True)
@@ -86,6 +90,9 @@ def sample_video(video_path: str | Path, interval_seconds: float = 0.5) -> tuple
     if duration <= 0:
         capture.release()
         raise ValueError("Video has no readable duration")
+    if duration > MAX_VIDEO_SECONDS:
+        capture.release()
+        raise ValueError("Video exceeds the five-minute limit")
 
     samples: list[FrameSample] = []
     next_timestamp = 0.0

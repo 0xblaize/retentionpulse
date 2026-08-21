@@ -1,6 +1,14 @@
 const apiBase = import.meta.env.VITE_API_URL || ''
 let csrfTokenValue = ''
 
+function friendlyError(payload, status) {
+  if (status === 413) return new Error(payload?.detail || 'This video is too large or longer than five minutes.')
+  if (status === 422) return new Error(payload?.detail || 'This video could not be analyzed. Try another file or a shorter export.')
+  if (status === 401) return new Error('Your workspace session has expired. Please sign in again.')
+  if (status === 403) return new Error('This secure request could not be verified. Refresh the page and try again.')
+  return new Error(payload?.detail || payload?.error || 'The request could not be completed. Please try again.')
+}
+
 export const authRoutes = {
   login: '/login/',
   dashboard: '/dashboard/'
@@ -38,7 +46,7 @@ async function request(path, options = {}) {
     throw error
   }
   if (!response.ok) {
-    const error = new Error(payload?.detail || payload?.error || `Request failed (${response.status})`)
+    const error = friendlyError(payload, response.status)
     error.status = response.status
     throw error
   }
