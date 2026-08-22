@@ -69,6 +69,11 @@ export async function logout() {
   return request('/api/auth/logout/', { method: 'POST' })
 }
 
+export async function instantAccess() {
+  return request('/api/auth/access/', { method: 'POST' })
+}
+
+
 export async function getScanHistory() {
   return request('/api/history/')
 }

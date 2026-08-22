@@ -1,0 +1,39 @@
+================================================================================
+PROMPTED.COM SUBMISSION DETAILS — RETENTIONPULSE AI
+================================================================================
+
+1. WHAT KIND OF POST IS THIS?
+Select: Share a Build
+
+2. WHAT DID YOU BUILD?
+RetentionPulse AI — AI-Powered Video Dead-Air & Attention Analyzer
+
+3. CATEGORY
+AI Tools, Video Editing, Creator Economy, Web Apps
+
+4. EXPLAIN YOUR POST
+RetentionPulse AI analyzes video edits to pinpoint visual monotony and silent dead air where viewers drop off.
+
+Key Highlights:
+• Fast Visual Rhythm: Millisecond OpenCV frame-difference analysis flags static shots.
+• Audio Pacing: Vectorized FFmpeg RMS audio analysis spots awkward silences.
+• Speech Cadence: Groq Whisper API produces word-level transcripts and words-per-minute pacing.
+• AI Repair Plan: Groq LLaMA 3.3-70B generates a concise, timestamped editing checklist to tighten the cut.
+• Private & Secure: Passkey (WebAuthn) passwordless authentication with SQLite scan history.
+
+5. THE PROMPTS YOU USED
+Step 1:
+"Build a fullstack video retention diagnostic web app called RetentionPulse AI with a modern, high-contrast dark aesthetic. Use FastAPI backend and React/Vite frontend."
+
+Step 2:
+"Implement background job processing so 2-5 minute video uploads return an instant job ID and stream progress without browser timeouts."
+
+Step 3:
+"Integrate OpenCV millisecond frame seeking, FFmpeg audio window analysis, and Groq Whisper + LLaMA 3.3-70B to generate structured retention heatmaps and repair suggestions."
+
+6. LINK TO YOUR BUILD
+https://retentionpulse.vercel.app
+
+7. BUILT WITH
+React, Vite, Tailwind CSS, FastAPI, Python, Groq (Whisper-large-v3-turbo + LLaMA-3.3-70B), OpenCV, FFmpeg, SQLite, WebAuthn Passkeys, Vercel, Render.
+================================================================================

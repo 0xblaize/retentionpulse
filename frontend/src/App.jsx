@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowUpRight, CheckCircle2, CircleAlert, Clock, FileVideo, History, LogOut, Trash2, Upload, X } from 'lucide-react'
-import { analyzeVideo, apiUrl, authRoutes, bootstrapCsrf, deleteScanHistoryItem, getScanHistory, getScanHistoryItem, getSession, logout } from './api'
+import { analyzeVideo, apiUrl, authRoutes, bootstrapCsrf, deleteScanHistoryItem, getScanHistory, getScanHistoryItem, getSession, instantAccess, logout } from './api'
+
 
 
 const VIDEO_URL = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260517_222138_3e3205be-3364-417b-a64a-bfe087acbec4.mp4'
@@ -198,7 +199,23 @@ function Login() {
     }
   }
 
-  return <main className="flex min-h-screen items-center justify-center bg-[#f4f1ed] px-5 py-8 text-black sm:px-8"><section className="w-full max-w-lg rounded-3xl border border-black/10 bg-white/85 p-6 shadow-sm sm:p-10" aria-labelledby="login-heading"><a href="/" aria-label="Back to RetentionPulse home"><Logo /></a><p className="mt-10 text-xs font-semibold tracking-[0.2em] text-accent">RETENTIONPULSE / PRIVATE WORKSPACE</p><h1 id="login-heading" className="mt-3 text-4xl font-semibold tracking-[-0.05em] sm:text-5xl">Unlock your pulse.</h1><p className="mt-4 text-base normal-case tracking-normal text-black/65">Create a passkey for this workspace or continue with one already registered on this device.</p>{error && <p className="mt-5 rounded-xl bg-red-50 p-4 text-sm normal-case text-red-700" role="alert">{error}</p>}<div className="mt-8 rounded-2xl border border-black/10 bg-black/[0.02] p-4"><label className="flex flex-col gap-2 text-sm font-semibold tracking-[0.12em] text-black/70" htmlFor="passkey-name"><span>Passkey name</span><input id="passkey-name" type="text" value={passkeyName} onChange={(event) => setPasskeyName(event.target.value)} placeholder="My work laptop" className="rounded-full border border-black/15 bg-white px-4 py-3 text-sm font-normal normal-case tracking-normal text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-accent" /></label></div><div className="mt-4 grid gap-3"><button type="button" disabled={busy} onClick={() => run('authenticate')} className="rounded-full bg-black px-5 py-3 text-sm font-semibold tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-50">{busy ? 'Waiting for passkey…' : 'Continue with passkey'}</button><button type="button" disabled={busy} onClick={() => run('register')} className="rounded-full border border-black/15 px-5 py-3 text-sm font-semibold tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-50">Register this device</button></div><p className="mt-5 text-sm normal-case leading-relaxed tracking-normal text-black/55">Passkeys require a supported browser. Registration is available for the first workspace device. The name you choose will appear in Google Password Manager and your device prompt.</p></section></main>
+  const quickAccess = async () => {
+
+    setBusy(true)
+    setError('')
+    try {
+      await bootstrapCsrf()
+      await instantAccess()
+      window.location.href = '/dashboard/'
+    } catch (err) {
+      setError(err.message || 'Could not unlock workspace.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return <main className="flex min-h-screen items-center justify-center bg-[#f4f1ed] px-5 py-8 text-black sm:px-8"><section className="w-full max-w-lg rounded-3xl border border-black/10 bg-white/85 p-6 shadow-sm sm:p-10" aria-labelledby="login-heading"><a href="/" aria-label="Back to RetentionPulse home"><Logo /></a><p className="mt-10 text-xs font-semibold tracking-[0.2em] text-accent">RETENTIONPULSE / PRIVATE WORKSPACE</p><h1 id="login-heading" className="mt-3 text-4xl font-semibold tracking-[-0.05em] sm:text-5xl">Unlock your pulse.</h1><p className="mt-4 text-base normal-case tracking-normal text-black/65">Authenticate with a passkey or enter your workspace directly.</p>{error && <p className="mt-5 rounded-xl bg-red-50 p-4 text-sm normal-case text-red-700" role="alert">{error}</p>}<button type="button" disabled={busy} onClick={quickAccess} className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold tracking-[0.12em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">{busy ? 'Opening workspace…' : 'Enter Workspace'}<ArrowUpRight size={17} /></button><div className="my-6 flex items-center gap-3"><div className="h-px flex-1 bg-black/10" /><span className="text-xs font-semibold tracking-widest text-black/40">OR USE PASSKEY</span><div className="h-px flex-1 bg-black/10" /></div><div className="rounded-2xl border border-black/10 bg-black/[0.02] p-4"><label className="flex flex-col gap-2 text-sm font-semibold tracking-[0.12em] text-black/70" htmlFor="passkey-name"><span>Passkey name</span><input id="passkey-name" type="text" value={passkeyName} onChange={(event) => setPasskeyName(event.target.value)} placeholder="My work laptop" className="rounded-full border border-black/15 bg-white px-4 py-3 text-sm font-normal normal-case tracking-normal text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-accent" /></label></div><div className="mt-4 grid gap-3"><button type="button" disabled={busy} onClick={() => run('authenticate')} className="rounded-full bg-black px-5 py-3 text-sm font-semibold tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-50">{busy ? 'Waiting for passkey…' : 'Continue with passkey'}</button><button type="button" disabled={busy} onClick={() => run('register')} className="rounded-full border border-black/15 px-5 py-3 text-sm font-semibold tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-50">Register this device</button></div><p className="mt-5 text-sm normal-case leading-relaxed tracking-normal text-black/55">Passkeys allow passwordless login with FaceID, fingerprint, or screen lock.</p></section></main>
+
 }
 
 function ProgressBar({ percent }) {

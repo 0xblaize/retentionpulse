@@ -320,6 +320,13 @@ async def auth_logout(request: Request) -> dict[str, bool]:
     return auth.logout(request)
 
 
+@app.post("/api/auth/access/")
+async def auth_access(request: Request) -> JSONResponse:
+    auth.require_csrf(request)
+    return await auth.instant_access(request)
+
+
+
 @app.post("/api/auth/passkey/register/options/")
 async def passkey_register_options(request: Request) -> JSONResponse:
     auth.require_csrf(request)
