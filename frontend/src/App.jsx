@@ -327,7 +327,16 @@ function Dashboard() {
     }
   }
 
-  const signOut = async () => { await logout(); window.location.href = '/' }
+  const signOut = async () => {
+    try {
+      await logout()
+    } catch {
+      // ignore
+    } finally {
+      window.location.href = '/'
+    }
+  }
+
 
   if (checking) return <div className="flex min-h-screen items-center justify-center bg-[#f4f1ed] text-sm font-semibold tracking-[0.18em]">Checking workspace…</div>
 

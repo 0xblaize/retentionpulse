@@ -46,7 +46,16 @@ def analyze_video_json(video_path: str | Path, *, mode: str = "auto") -> dict[st
 
     multimodal_payload: dict[str, Any] = {}
     if mode not in {"fast_preview", "visual"}:
-        multimodal_payload = analyze_multimodal(video_path, result)
+        try:
+            multimodal_payload = analyze_multimodal(video_path, result)
+        except Exception as exc:
+            multimodal_payload = {
+                "warnings": [f"Audio diagnostics skipped due to stream error: {str(exc)[:120]}"],
+                "transcript": [],
+                "timeline_zones": [],
+                "remediation_actions": [],
+            }
+
 
     # Incorporate audio pause risk into health score so a visually-moving video with
     # long dead-air silences does not score 100/100.

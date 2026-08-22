@@ -41,67 +41,82 @@ _JOB_DB_PATH = Path(os.getenv("RETENTIONPULSE_DB_PATH", Path(__file__).resolve()
 
 
 def _jobs_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(_JOB_DB_PATH)
+    conn = sqlite3.connect(_JOB_DB_PATH, timeout=15.0)
     conn.row_factory = sqlite3.Row
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS analysis_job (
-            job_id TEXT PRIMARY KEY,
-            status TEXT NOT NULL DEFAULT 'queued',
-            result TEXT,
-            detail TEXT,
-            created_at TEXT NOT NULL
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS analysis_history (
-            id TEXT PRIMARY KEY,
-            filename TEXT NOT NULL,
-            duration REAL NOT NULL,
-            health_score INTEGER NOT NULL,
-            risk_seconds REAL NOT NULL,
-            risk_ratio REAL NOT NULL,
-            flagged_count INTEGER NOT NULL,
-            result TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        )
-    """)
-    conn.commit()
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS analysis_job (
+                job_id TEXT PRIMARY KEY,
+                status TEXT NOT NULL DEFAULT 'queued',
+                result TEXT,
+                detail TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS analysis_history (
+                id TEXT PRIMARY KEY,
+                filename TEXT NOT NULL,
+                duration REAL NOT NULL,
+                health_score INTEGER NOT NULL,
+                risk_seconds REAL NOT NULL,
+                risk_ratio REAL NOT NULL,
+                flagged_count INTEGER NOT NULL,
+                result TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 
 def _job_set(job_id: str, **fields: object) -> None:
-    conn = _jobs_db()
-    sets = ", ".join(f"{k} = ?" for k in fields)
-    conn.execute(f"UPDATE analysis_job SET {sets} WHERE job_id = ?", (*fields.values(), job_id))
-    conn.commit()
-    conn.close()
+    try:
+        conn = _jobs_db()
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        conn.execute(f"UPDATE analysis_job SET {sets} WHERE job_id = ?", (*fields.values(), job_id))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 
 def _job_get(job_id: str) -> sqlite3.Row | None:
-    conn = _jobs_db()
-    row = conn.execute("SELECT * FROM analysis_job WHERE job_id = ?", (job_id,)).fetchone()
-    conn.close()
-    return row
+    try:
+        conn = _jobs_db()
+        row = conn.execute("SELECT * FROM analysis_job WHERE job_id = ?", (job_id,)).fetchone()
+        conn.close()
+        return row
+    except Exception:
+        return None
 
 
 def _job_create(job_id: str) -> None:
-    conn = _jobs_db()
-    conn.execute(
-        "INSERT INTO analysis_job (job_id, status, created_at) VALUES (?, 'queued', ?)",
-        (job_id, datetime.now(timezone.utc).isoformat()),
-    )
-    conn.commit()
-    conn.close()
+    try:
+        conn = _jobs_db()
+        conn.execute(
+            "INSERT INTO analysis_job (job_id, status, created_at) VALUES (?, 'queued', ?)",
+            (job_id, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 
 def _jobs_cleanup() -> None:
     """Delete jobs older than 1 hour to keep the DB small."""
-    conn = _jobs_db()
-    conn.execute(
-        "DELETE FROM analysis_job WHERE created_at < datetime('now', '-1 hour')"
-    )
-    conn.commit()
-    conn.close()
+    try:
+        conn = _jobs_db()
+        conn.execute(
+            "DELETE FROM analysis_job WHERE created_at < datetime('now', '-1 hour')"
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 
 def _history_save(
@@ -114,67 +129,80 @@ def _history_save(
     flagged_count: int,
     result_json: str,
 ) -> None:
-    conn = _jobs_db()
-    conn.execute(
-        """
-        INSERT OR REPLACE INTO analysis_history
-        (id, filename, duration, health_score, risk_seconds, risk_ratio, flagged_count, result, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            history_id,
-            filename,
-            duration,
-            health_score,
-            risk_seconds,
-            risk_ratio,
-            flagged_count,
-            result_json,
-            datetime.now(timezone.utc).isoformat(),
-        ),
-    )
-    conn.commit()
-    conn.close()
+    try:
+        conn = _jobs_db()
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO analysis_history
+            (id, filename, duration, health_score, risk_seconds, risk_ratio, flagged_count, result, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                history_id,
+                filename,
+                duration,
+                health_score,
+                risk_seconds,
+                risk_ratio,
+                flagged_count,
+                result_json,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 
 def _history_list() -> list[dict[str, object]]:
-    conn = _jobs_db()
-    rows = conn.execute(
-        """
-        SELECT id, filename, duration, health_score, risk_seconds, risk_ratio, flagged_count, created_at
-        FROM analysis_history
-        ORDER BY created_at DESC
-        LIMIT 50
-        """
-    ).fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+    try:
+        conn = _jobs_db()
+        rows = conn.execute(
+            """
+            SELECT id, filename, duration, health_score, risk_seconds, risk_ratio, flagged_count, created_at
+            FROM analysis_history
+            ORDER BY created_at DESC
+            LIMIT 50
+            """
+        ).fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+    except Exception:
+        return []
 
 
 def _history_get(history_id: str) -> dict[str, object] | None:
-    conn = _jobs_db()
-    row = conn.execute(
-        "SELECT * FROM analysis_history WHERE id = ?",
-        (history_id,),
-    ).fetchone()
-    conn.close()
-    if row is None:
+    try:
+        conn = _jobs_db()
+        row = conn.execute(
+            "SELECT * FROM analysis_history WHERE id = ?",
+            (history_id,),
+        ).fetchone()
+        conn.close()
+        if row is None:
+            return None
+        data = dict(row)
+        data["result"] = json.loads(data["result"])
+        return data
+    except Exception:
         return None
-    data = dict(row)
-    data["result"] = json.loads(data["result"])
-    return data
 
 
 def _history_delete(history_id: str) -> bool:
-    conn = _jobs_db()
-    cursor = conn.execute(
-        "DELETE FROM analysis_history WHERE id = ?",
-        (history_id,),
-    )
-    conn.commit()
-    deleted = cursor.rowcount > 0
-    conn.close()
-    return deleted
+    try:
+        conn = _jobs_db()
+        cursor = conn.execute(
+            "DELETE FROM analysis_history WHERE id = ?",
+            (history_id,),
+        )
+        conn.commit()
+        deleted = cursor.rowcount > 0
+        conn.close()
+        return deleted
+    except Exception:
+        return False
+
 
 
 def _extension(filename: str | None) -> str:

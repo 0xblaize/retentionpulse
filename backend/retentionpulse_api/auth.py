@@ -21,8 +21,9 @@ CSRF_COOKIE = "csrftoken"
 
 
 def _db() -> sqlite3.Connection:
-    connection = sqlite3.connect(DB_PATH)
+    connection = sqlite3.connect(DB_PATH, timeout=15.0)
     connection.row_factory = sqlite3.Row
+
     connection.execute(
         """CREATE TABLE IF NOT EXISTS web_passkeycredential (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
