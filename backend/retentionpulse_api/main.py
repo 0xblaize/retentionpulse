@@ -225,7 +225,7 @@ async def protected_analyze(request: Request, video: UploadFile | None = File(No
 
 
 @app.post("/api/analyze/jobs/")
-async def create_analysis_job(request: Request, video: UploadFile = File(...), mode: str = Form("fast_preview")) -> dict[str, str]:
+async def create_analysis_job(request: Request, video: UploadFile = File(...), mode: str = Form("auto")) -> dict[str, str]:
     auth.require_auth(request)
     auth.require_csrf(request)
     if mode not in SUPPORTED_MODES:

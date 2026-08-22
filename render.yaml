@@ -25,6 +25,12 @@ services:
         value: "300"
       - key: RETENTIONPULSE_DB_PATH
         value: /app/data/db.sqlite3
+      - key: RETENTIONPULSE_LLM_API_URL
+        value: https://api.groq.com/openai/v1/chat/completions
+      - key: RETENTIONPULSE_LLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: RETENTIONPULSE_LLM_API_KEY
+        sync: false  # Set this secret in the Render dashboard — never commit the key
     disk:
       name: retentionpulse-data
       mountPath: /app/data

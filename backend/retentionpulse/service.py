@@ -14,8 +14,7 @@ def analyze_video_json(video_path: str | Path, *, mode: str = "auto") -> dict[st
         raise ValueError("Analysis mode must be fast_preview, visual, multimodal, or auto.")
     result = analyze_video(video_path)
     suggestions = generate_repair_suggestions(result.static_segments)
-    risk_seconds = sum(segment.duration for segment in result.static_segments)
-    risk_ratio = risk_seconds / result.duration if result.duration else 0.0
+    visual_risk_seconds = sum(segment.duration for segment in result.static_segments)
 
     segments = [
         {
@@ -35,7 +34,6 @@ def analyze_video_json(video_path: str | Path, *, mode: str = "auto") -> dict[st
         }
         for suggestion in suggestions
     ]
-    health_score = max(0, round((1.0 - risk_ratio) * 100))
     timeline = [
         {
             "timestamp": sample.timestamp,
@@ -45,9 +43,25 @@ def analyze_video_json(video_path: str | Path, *, mode: str = "auto") -> dict[st
         }
         for sample, score in zip(result.samples, result.motion_scores)
     ]
+
     multimodal_payload: dict[str, Any] = {}
     if mode not in {"fast_preview", "visual"}:
         multimodal_payload = analyze_multimodal(video_path, result)
+
+    # Incorporate audio pause risk into health score so a visually-moving video with
+    # long dead-air silences does not score 100/100.
+    audio_risk_seconds = 0.0
+    remediation_actions = multimodal_payload.get("remediation_actions", [])
+    for action in remediation_actions:
+        if action.get("category") == "long_pause_or_silence":
+            audio_risk_seconds += max(0.0, float(action.get("end", 0)) - float(action.get("start", 0)))
+
+    risk_seconds = max(visual_risk_seconds, visual_risk_seconds + audio_risk_seconds * 0.5)
+    risk_ratio = risk_seconds / result.duration if result.duration else 0.0
+    health_score = max(0, round((1.0 - risk_ratio) * 100))
+
+    # Always preserve the requested mode — do not let multimodal_payload overwrite it.
+    multimodal_payload.pop("mode", None)
 
     payload: dict[str, Any] = {
         "duration": result.duration,
@@ -59,7 +73,11 @@ def analyze_video_json(video_path: str | Path, *, mode: str = "auto") -> dict[st
         "ai_repair_plan": None,
         "timeline": timeline,
         "mode": mode,
-        "capabilities": {"visual": True, "audio": bool(multimodal_payload.get("speech_metrics")), "embeddings": bool(multimodal_payload.get("timeline_zones"))},
+        "capabilities": {
+            "visual": True,
+            "audio": bool(multimodal_payload.get("speech_metrics")),
+            "embeddings": bool(multimodal_payload.get("timeline_zones")),
+        },
         **multimodal_payload,
     }
     if mode not in {"fast_preview", "visual"}:
@@ -78,3 +96,4 @@ def analyze_video_json(video_path: str | Path, *, mode: str = "auto") -> dict[st
         except Exception:
             payload["ai_repair_plan"] = None
     return payload
+
