@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
+import sqlite3
 import tempfile
 import asyncio
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -30,7 +33,62 @@ frontend_url = os.getenv("RETENTIONPULSE_FRONTEND_URL", "http://127.0.0.1:5173")
 allowed_origins = [origin.strip().rstrip("/") for origin in os.getenv("CORS_ALLOWED_ORIGINS", frontend_url).split(",") if origin.strip()]
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("RETENTIONPULSE_SECRET_KEY", "retentionpulse-local-secret-change-me"), same_site="none" if frontend_url.startswith("https://") else "lax", https_only=frontend_url.startswith("https://"))
 app.add_middleware(CORSMiddleware, allow_origins=allowed_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
-analysis_jobs: dict[str, dict[str, object]] = {}
+
+# ---------------------------------------------------------------------------
+# SQLite-backed job store — survives Render restarts / container recycles
+# ---------------------------------------------------------------------------
+_JOB_DB_PATH = Path(os.getenv("RETENTIONPULSE_DB_PATH", Path(__file__).resolve().parents[1] / "db.sqlite3"))
+
+
+def _jobs_db() -> sqlite3.Connection:
+    conn = sqlite3.connect(_JOB_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS analysis_job (
+            job_id TEXT PRIMARY KEY,
+            status TEXT NOT NULL DEFAULT 'queued',
+            result TEXT,
+            detail TEXT,
+            created_at TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    return conn
+
+
+def _job_set(job_id: str, **fields: object) -> None:
+    conn = _jobs_db()
+    sets = ", ".join(f"{k} = ?" for k in fields)
+    conn.execute(f"UPDATE analysis_job SET {sets} WHERE job_id = ?", (*fields.values(), job_id))
+    conn.commit()
+    conn.close()
+
+
+def _job_get(job_id: str) -> sqlite3.Row | None:
+    conn = _jobs_db()
+    row = conn.execute("SELECT * FROM analysis_job WHERE job_id = ?", (job_id,)).fetchone()
+    conn.close()
+    return row
+
+
+def _job_create(job_id: str) -> None:
+    conn = _jobs_db()
+    conn.execute(
+        "INSERT INTO analysis_job (job_id, status, created_at) VALUES (?, 'queued', ?)",
+        (job_id, datetime.now(timezone.utc).isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def _jobs_cleanup() -> None:
+    """Delete jobs older than 1 hour to keep the DB small."""
+    conn = _jobs_db()
+    conn.execute(
+        "DELETE FROM analysis_job WHERE created_at < datetime('now', '-1 hour')"
+    )
+    conn.commit()
+    conn.close()
 
 
 def _extension(filename: str | None) -> str:
@@ -43,18 +101,19 @@ def _analyze(path: str, mode: str = "auto") -> dict:
 
 async def _run_job(job_id: str, path: str, mode: str) -> None:
     try:
-        analysis_jobs[job_id]["status"] = "processing"
-        analysis_jobs[job_id]["result"] = await run_in_threadpool(_analyze, path, mode)
-        analysis_jobs[job_id]["status"] = "complete"
+        _job_set(job_id, status="processing")
+        result = await run_in_threadpool(_analyze, path, mode)
+        _job_set(job_id, status="complete", result=json.dumps(result))
     except ValueError:
-        analysis_jobs[job_id].update(status="error", detail="This video could not be read. Try exporting it as a standard video file.")
+        _job_set(job_id, status="error", detail="This video could not be read. Try exporting it as a standard video file.")
     except Exception:
-        analysis_jobs[job_id].update(status="error", detail="Analysis could not be completed for this video. Try another file or a shorter export.")
+        _job_set(job_id, status="error", detail="Analysis could not be completed for this video. Try another file or a shorter export.")
     finally:
         try:
             os.unlink(path)
         except FileNotFoundError:
             pass
+        _jobs_cleanup()
 
 
 @app.get("/health")
@@ -183,7 +242,7 @@ async def create_analysis_job(request: Request, video: UploadFile = File(...), m
                     raise HTTPException(status_code=413, detail="The video exceeds the upload limit.")
                 temporary_file.write(chunk)
         job_id = uuid.uuid4().hex
-        analysis_jobs[job_id] = {"status": "queued"}
+        _job_create(job_id)
         asyncio.create_task(_run_job(job_id, temporary_path, mode))
         temporary_path = None
         return {"jobId": job_id}
@@ -199,11 +258,11 @@ async def create_analysis_job(request: Request, video: UploadFile = File(...), m
 @app.get("/api/analyze/jobs/{job_id}")
 async def analysis_job(request: Request, job_id: str) -> object:
     auth.require_auth(request)
-    job = analysis_jobs.get(job_id)
+    job = _job_get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Analysis job was not found or has expired.")
     if job["status"] == "error":
         raise HTTPException(status_code=422, detail=job["detail"])
     if job["status"] != "complete":
         return {"status": job["status"]}
-    return {"status": "complete", "result": AnalysisResponse.model_validate(job["result"]).model_dump()}
+    return {"status": "complete", "result": AnalysisResponse.model_validate(json.loads(job["result"])).model_dump()}

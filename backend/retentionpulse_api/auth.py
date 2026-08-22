@@ -107,10 +107,23 @@ def require_auth(request: Request) -> None:
 
 
 def require_csrf(request: Request) -> None:
+    # Primary: session-bound token compared against X-CSRFToken header or cookie value.
     expected = request.session.get("csrf_token")
-    supplied = request.headers.get("x-csrftoken") or request.cookies.get(CSRF_COOKIE)
-    if not expected or not secrets.compare_digest(str(expected), str(supplied or "")):
-        raise HTTPException(status_code=403, detail="CSRF verification failed.")
+    supplied = (
+        request.headers.get("x-csrftoken")
+        or request.headers.get("x-csrf-token")
+        or request.cookies.get(CSRF_COOKIE)
+    )
+    if expected and supplied and secrets.compare_digest(str(expected), str(supplied)):
+        return
+    # Fallback: double-submit cookie — header value must equal cookie value.
+    # This handles Render restarts where the session is lost but cookies remain.
+    # Safe because SameSite=None; Secure cookies cannot be read by cross-origin attackers.
+    header_token = request.headers.get("x-csrftoken") or request.headers.get("x-csrf-token")
+    cookie_token = request.cookies.get(CSRF_COOKIE)
+    if header_token and cookie_token and secrets.compare_digest(header_token, cookie_token):
+        return
+    raise HTTPException(status_code=403, detail="CSRF verification failed.")
 
 
 async def register_options(request: Request) -> JSONResponse:

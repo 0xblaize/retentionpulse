@@ -27,13 +27,14 @@ async function request(path, options = {}) {
   const method = options.method || 'GET'
   const isFormData = options.body instanceof FormData
   const token = decodeURIComponent(csrfTokenValue || csrfToken())
-  if (isFormData && method !== 'GET' && token) options.body.append('csrfmiddlewaretoken', token)
   const response = await fetch(apiUrl(path), {
     credentials: apiBase ? 'include' : 'same-origin',
     ...options,
     headers: {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(method !== 'GET' && !isFormData ? { 'X-CSRFToken': token } : {}),
+      // Always send the CSRF token as a header for every mutating request.
+      // Previously the !isFormData guard silently dropped it on file uploads → 403.
+      ...(method !== 'GET' && token ? { 'X-CSRFToken': token } : {}),
       ...(options.headers || {})
     }
   })
