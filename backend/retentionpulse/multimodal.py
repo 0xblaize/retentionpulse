@@ -25,10 +25,13 @@ def _zone(score: float) -> str:
     return "green"
 
 
-def _rms(samples: list[int]) -> float:
-    if not samples:
+import numpy as np
+
+
+def _rms_np(samples: np.ndarray) -> float:
+    if len(samples) == 0:
         return 0.0
-    return math.sqrt(sum(sample * sample for sample in samples) / len(samples)) / 32768.0
+    return float(np.sqrt(np.mean((samples.astype(np.float32) / 32768.0) ** 2)))
 
 
 def _audio_windows(path: Path, duration: float) -> tuple[list[dict[str, float]], list[str], list[dict[str, Any]]]:
@@ -54,14 +57,15 @@ def _audio_windows(path: Path, duration: float) -> tuple[list[dict[str, float]],
                 raw = audio.readframes(samples_per_window)
                 if not raw:
                     break
-                samples = [int.from_bytes(raw[offset:offset + 2], "little", signed=True) for offset in range(0, len(raw), 2)]
-                energy = _rms(samples)
-                windows.append({"timestamp": index * WINDOW_SECONDS, "energy": energy, "speech": 1.0 if energy >= 0.015 else 0.0})
+                samples = np.frombuffer(raw, dtype=np.int16)
+                energy = _rms_np(samples)
+                windows.append({"timestamp": index * WINDOW_SECONDS, "energy": round(energy, 5), "speech": 1.0 if energy >= 0.015 else 0.0})
                 index += 1
             if not windows:
                 return [], ["The audio track was empty; audio diagnostics were skipped."], []
             transcript, transcript_warnings = transcribe_local(temporary_path)
             return windows, warnings + transcript_warnings, transcript
+
     except (OSError, subprocess.SubprocessError, wave.Error):
         return [], ["The audio track could not be analyzed; audio diagnostics were skipped."], []
     finally:

@@ -119,21 +119,36 @@ export function analyzeVideo(file, signal, mode = 'fast_preview', onProgress) {
       onProgress?.({ phase: 'analyzing', percent: 0 })
       const deadline = Date.now() + ANALYSIS_TIMEOUT_MS
       let pollTick = 0
+      let consecutiveErrors = 0
       const poll = async () => {
         try {
           if (signal?.aborted) return reject(new DOMException('Request aborted', 'AbortError'))
           if (Date.now() >= deadline) return reject(new Error('Analysis is taking too long. Try a shorter or smaller video.'))
           const status = await request(`/api/analyze/jobs/${jobId}`, { signal })
+          consecutiveErrors = 0
           if (status.status === 'complete') return resolve(status.result)
           // Pulse the progress indicator so the user sees activity
           pollTick++
-          onProgress?.({ phase: 'analyzing', percent: Math.min(95, pollTick * 2) })
+          onProgress?.({ phase: 'analyzing', percent: Math.min(95, 10 + pollTick * 3) })
           window.setTimeout(poll, 1500)
         } catch (err) {
-          reject(err)
+          if (err.name === 'AbortError' || signal?.aborted) {
+            return reject(new DOMException('Request aborted', 'AbortError'))
+          }
+          // If the job returned a business error (422), fail immediately
+          if (err.status === 422 || err.status === 404 || err.status === 401 || err.status === 403) {
+            return reject(err)
+          }
+          // For transient network hiccups, retry up to 5 times
+          consecutiveErrors++
+          if (consecutiveErrors > 5) {
+            return reject(err)
+          }
+          window.setTimeout(poll, 2000)
         }
       }
       poll()
+
     })
 
     xhr.addEventListener('timeout', () => {

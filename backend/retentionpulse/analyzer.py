@@ -96,21 +96,20 @@ def sample_video(video_path: str | Path, interval_seconds: float = 0.5) -> tuple
 
     samples: list[FrameSample] = []
     next_timestamp = 0.0
-    frame_index = 0
     while next_timestamp < duration:
+        capture.set(cv2.CAP_PROP_POS_MSEC, next_timestamp * 1000.0)
         success, frame = capture.read()
         if not success:
+            # If seeking past end or seek failed, try breaking
             break
-        timestamp = frame_index / fps
-        if timestamp + (1 / fps) >= next_timestamp:
-            samples.append(FrameSample(next_timestamp, normalize_frame(frame)))
-            next_timestamp += interval_seconds
-        frame_index += 1
+        samples.append(FrameSample(next_timestamp, normalize_frame(frame)))
+        next_timestamp += interval_seconds
     capture.release()
 
     if len(samples) < 2:
         raise ValueError("Video does not contain enough readable frames")
     return duration, tuple(samples)
+
 
 
 def analyze_video(
