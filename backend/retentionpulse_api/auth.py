@@ -142,7 +142,9 @@ async def register_options(request: Request) -> JSONResponse:
     options = api["generate_registration_options"](
         rp_id=_rp_id(request), rp_name=RP_NAME, user_id=user_handle,
         user_name=display_name, user_display_name=display_name,
-        authenticator_selection=api["AuthenticatorSelectionCriteria"](user_verification=api["UserVerificationRequirement"].REQUIRED),
+        authenticator_selection=api["AuthenticatorSelectionCriteria"](
+            user_verification=api["UserVerificationRequirement"].PREFERRED
+        ),
         timeout=WEBAUTHN_TIMEOUT_MS,
     )
     request.session["passkey_registration_challenge"] = _b64(options.challenge)
@@ -163,14 +165,24 @@ async def register_verify(request: Request) -> JSONResponse:
     try:
         credential = api["parse_registration_credential_json"]((await request.body()).decode("utf-8"))
         verification = api["verify_registration_response"](
-            credential=credential, expected_challenge=_unb64(challenge), expected_rp_id=_rp_id(request),
-            expected_origin=_origin(request), require_user_verification=True,
+            credential=credential,
+            expected_challenge=_unb64(challenge),
+            expected_rp_id=_rp_id(request),
+            expected_origin=_origin(request),
+            require_user_verification=False,
         )
         connection = _db()
         connection.execute(
             "INSERT INTO web_passkeycredential (credential_id, public_key, user_handle, name, sign_count, transports, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (verification.credential_id, verification.credential_public_key, _unb64(user_handle), name or RP_NAME,
-             verification.sign_count, json.dumps(list(getattr(credential.response, "transports", None) or [])), datetime.now(timezone.utc).isoformat()),
+            (
+                verification.credential_id,
+                verification.credential_public_key,
+                _unb64(user_handle),
+                name or RP_NAME,
+                verification.sign_count,
+                json.dumps(list(getattr(credential.response, "transports", None) or [])),
+                datetime.now(timezone.utc).isoformat(),
+            ),
         )
         connection.commit()
         connection.close()
@@ -189,8 +201,10 @@ async def auth_options(request: Request) -> JSONResponse:
     connection.close()
     credentials = [api["PublicKeyCredentialDescriptor"](id=bytes(row["credential_id"])) for row in rows]
     options = api["generate_authentication_options"](
-        rp_id=_rp_id(request), allow_credentials=credentials or None,
-        user_verification=api["UserVerificationRequirement"].REQUIRED, timeout=WEBAUTHN_TIMEOUT_MS,
+        rp_id=_rp_id(request),
+        allow_credentials=credentials or None,
+        user_verification=api["UserVerificationRequirement"].PREFERRED,
+        timeout=WEBAUTHN_TIMEOUT_MS,
     )
     request.session["passkey_authentication_challenge"] = _b64(options.challenge)
     return JSONResponse(json.loads(api["options_to_json"](options)))
@@ -206,21 +220,43 @@ async def auth_verify(request: Request) -> JSONResponse:
     try:
         credential = api["parse_authentication_credential_json"]((await request.body()).decode("utf-8"))
         connection = _db()
+        total_creds = connection.execute("SELECT COUNT(*) FROM web_passkeycredential WHERE disabled = 0").fetchone()[0]
+        if total_creds == 0:
+            connection.close()
+            raise ValueError("No passkeys registered yet for this workspace. Please click 'Register this device' first.")
         stored = connection.execute("SELECT * FROM web_passkeycredential WHERE credential_id = ? AND disabled = 0", (credential.raw_id,)).fetchone()
         if stored is None:
-            raise ValueError("Unknown passkey")
+            # Try searching by matching bytes
+            all_stored = connection.execute("SELECT * FROM web_passkeycredential WHERE disabled = 0").fetchall()
+            for row in all_stored:
+                if bytes(row["credential_id"]) == credential.raw_id:
+                    stored = row
+                    break
+        if stored is None:
+            connection.close()
+            raise ValueError("This passkey is not recognized for this workspace. Please click 'Register this device' to add it.")
         verification = api["verify_authentication_response"](
-            credential=credential, expected_challenge=_unb64(challenge), expected_rp_id=_rp_id(request),
-            expected_origin=_origin(request), credential_public_key=bytes(stored["public_key"]),
-            credential_current_sign_count=stored["sign_count"], require_user_verification=True,
+            credential=credential,
+            expected_challenge=_unb64(challenge),
+            expected_rp_id=_rp_id(request),
+            expected_origin=_origin(request),
+            credential_public_key=bytes(stored["public_key"]),
+            credential_current_sign_count=stored["sign_count"] if stored["sign_count"] > 0 else 0,
+            require_user_verification=False,
         )
-        connection.execute("UPDATE web_passkeycredential SET sign_count = ?, last_used_at = ? WHERE id = ?", (verification.new_sign_count, datetime.now(timezone.utc).isoformat(), stored["id"]))
+        connection.execute(
+            "UPDATE web_passkeycredential SET sign_count = ?, last_used_at = ? WHERE id = ?",
+            (verification.new_sign_count, datetime.now(timezone.utc).isoformat(), stored["id"]),
+        )
         connection.commit()
         connection.close()
+    except ValueError as val_err:
+        raise HTTPException(status_code=401, detail=str(val_err)) from val_err
     except Exception as error:
-        raise HTTPException(status_code=401, detail="The passkey assertion could not be verified.") from error
+        raise HTTPException(status_code=401, detail=f"The passkey assertion could not be verified: {error}") from error
     request.session["authenticated"] = True
     return JSONResponse({"authenticated": True})
+
 
 
 def logout(request: Request) -> dict[str, bool]:
