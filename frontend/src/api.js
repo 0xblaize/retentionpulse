@@ -69,6 +69,19 @@ export async function logout() {
   return request('/api/auth/logout/', { method: 'POST' })
 }
 
+export async function getScanHistory() {
+  return request('/api/history/')
+}
+
+export async function getScanHistoryItem(id) {
+  return request(`/api/history/${id}`)
+}
+
+export async function deleteScanHistoryItem(id) {
+  return request(`/api/history/${id}`, { method: 'DELETE' })
+}
+
+
 /**
  * Upload a video file via XHR (for progress events) then poll for job completion.
  *

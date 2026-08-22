@@ -52,6 +52,19 @@ def _jobs_db() -> sqlite3.Connection:
             created_at TEXT NOT NULL
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS analysis_history (
+            id TEXT PRIMARY KEY,
+            filename TEXT NOT NULL,
+            duration REAL NOT NULL,
+            health_score INTEGER NOT NULL,
+            risk_seconds REAL NOT NULL,
+            risk_ratio REAL NOT NULL,
+            flagged_count INTEGER NOT NULL,
+            result TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
     conn.commit()
     return conn
 
@@ -91,6 +104,79 @@ def _jobs_cleanup() -> None:
     conn.close()
 
 
+def _history_save(
+    history_id: str,
+    filename: str,
+    duration: float,
+    health_score: int,
+    risk_seconds: float,
+    risk_ratio: float,
+    flagged_count: int,
+    result_json: str,
+) -> None:
+    conn = _jobs_db()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO analysis_history
+        (id, filename, duration, health_score, risk_seconds, risk_ratio, flagged_count, result, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            history_id,
+            filename,
+            duration,
+            health_score,
+            risk_seconds,
+            risk_ratio,
+            flagged_count,
+            result_json,
+            datetime.now(timezone.utc).isoformat(),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def _history_list() -> list[dict[str, object]]:
+    conn = _jobs_db()
+    rows = conn.execute(
+        """
+        SELECT id, filename, duration, health_score, risk_seconds, risk_ratio, flagged_count, created_at
+        FROM analysis_history
+        ORDER BY created_at DESC
+        LIMIT 50
+        """
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def _history_get(history_id: str) -> dict[str, object] | None:
+    conn = _jobs_db()
+    row = conn.execute(
+        "SELECT * FROM analysis_history WHERE id = ?",
+        (history_id,),
+    ).fetchone()
+    conn.close()
+    if row is None:
+        return None
+    data = dict(row)
+    data["result"] = json.loads(data["result"])
+    return data
+
+
+def _history_delete(history_id: str) -> bool:
+    conn = _jobs_db()
+    cursor = conn.execute(
+        "DELETE FROM analysis_history WHERE id = ?",
+        (history_id,),
+    )
+    conn.commit()
+    deleted = cursor.rowcount > 0
+    conn.close()
+    return deleted
+
+
 def _extension(filename: str | None) -> str:
     return Path(filename or "").suffix.lower()
 
@@ -99,21 +185,36 @@ def _analyze(path: str, mode: str = "auto") -> dict:
     return analyze_video_json(path, mode=mode)
 
 
-async def _run_job(job_id: str, path: str, mode: str) -> None:
+async def _run_job(job_id: str, path: str, mode: str, filename: str = "Video") -> None:
     try:
         _job_set(job_id, status="processing")
         result = await run_in_threadpool(_analyze, path, mode)
-        _job_set(job_id, status="complete", result=json.dumps(result))
+        result_json = json.dumps(result)
+        _job_set(job_id, status="complete", result=result_json)
+        try:
+            _history_save(
+                history_id=job_id,
+                filename=filename,
+                duration=float(result.get("duration") or 0.0),
+                health_score=int(result.get("health_score") or 0),
+                risk_seconds=float(result.get("risk_seconds") or 0.0),
+                risk_ratio=float(result.get("risk_ratio") or 0.0),
+                flagged_count=len(result.get("segments") or []),
+                result_json=result_json,
+            )
+        except Exception:
+            pass
     except ValueError:
         _job_set(job_id, status="error", detail="This video could not be read. Try exporting it as a standard video file.")
-    except Exception:
-        _job_set(job_id, status="error", detail="Analysis could not be completed for this video. Try another file or a shorter export.")
+    except Exception as exc:
+        _job_set(job_id, status="error", detail=f"Analysis could not be completed for this video: {str(exc)[:160]}")
     finally:
         try:
             os.unlink(path)
         except FileNotFoundError:
             pass
         _jobs_cleanup()
+
 
 
 @app.get("/health")
@@ -243,7 +344,8 @@ async def create_analysis_job(request: Request, video: UploadFile = File(...), m
                 temporary_file.write(chunk)
         job_id = uuid.uuid4().hex
         _job_create(job_id)
-        asyncio.create_task(_run_job(job_id, temporary_path, mode))
+        original_filename = video.filename or "Uploaded Video"
+        asyncio.create_task(_run_job(job_id, temporary_path, mode, filename=original_filename))
         temporary_path = None
         return {"jobId": job_id}
     finally:
@@ -266,3 +368,29 @@ async def analysis_job(request: Request, job_id: str) -> object:
     if job["status"] != "complete":
         return {"status": job["status"]}
     return {"status": "complete", "result": AnalysisResponse.model_validate(json.loads(job["result"])).model_dump()}
+
+
+@app.get("/api/history/")
+async def get_history(request: Request) -> list[dict[str, object]]:
+    auth.require_auth(request)
+    return _history_list()
+
+
+@app.get("/api/history/{history_id}")
+async def get_history_item(request: Request, history_id: str) -> dict[str, object]:
+    auth.require_auth(request)
+    item = _history_get(history_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="History item not found.")
+    return item
+
+
+@app.delete("/api/history/{history_id}")
+async def delete_history_item(request: Request, history_id: str) -> dict[str, bool]:
+    auth.require_auth(request)
+    auth.require_csrf(request)
+    deleted = _history_delete(history_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="History item not found.")
+    return {"deleted": True}
+

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowUpRight, CheckCircle2, CircleAlert, LogOut, Upload, X } from 'lucide-react'
-import { analyzeVideo, apiUrl, authRoutes, bootstrapCsrf, getSession, logout } from './api'
+import { ArrowUpRight, CheckCircle2, CircleAlert, Clock, FileVideo, History, LogOut, Trash2, Upload, X } from 'lucide-react'
+import { analyzeVideo, apiUrl, authRoutes, bootstrapCsrf, deleteScanHistoryItem, getScanHistory, getScanHistoryItem, getSession, logout } from './api'
+
 
 const VIDEO_URL = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260517_222138_3e3205be-3364-417b-a64a-bfe087acbec4.mp4'
 const navItems = ['Story', 'Analysis', 'Workflow', 'Feedback']
@@ -197,7 +198,10 @@ function Login() {
     }
   }
 
-  return <main className="flex min-h-screen items-center justify-center bg-[#f4f1ed] px-5 py-8 text-black sm:px-8"><section className="w-full max-w-lg rounded-3xl border border-black/10 bg-white/85 p-6 shadow-sm sm:p-10" aria-labelledby="login-heading"><a href="/" aria-label="Back to RetentionPulse home"><Logo /></a><p className="mt-10 text-xs font-semibold tracking-[0.2em] text-accent">RETENTIONPULSE / PRIVATE WORKSPACE</p><h1 id="login-heading" className="mt-3 text-4xl font-semibold tracking-[-0.05em] sm:text-5xl">Unlock your pulse.</h1><p className="mt-4 text-base normal-case tracking-normal text-black/65">Create a passkey for this workspace or continue with one already registered on this device.</p>{error && <p className="mt-5 rounded-xl bg-red-50 p-4 text-sm normal-case text-red-700" role="alert">{error}</p>}<div className="mt-8 rounded-2xl border border-black/10 bg-black/[0.02] p-4"><label className="flex flex-col gap-2 text-sm font-semibold tracking-[0.12em] text-black/70" htmlFor="passkey-name"><span>Passkey name</span><input id="passkey-name" type="text" value={passkeyName} onChange={(event) => setPasskeyName(event.target.value)} placeholder="My work laptop" className="rounded-full border border-black/15 bg-white px-4 py-3 text-sm font-normal normal-case tracking-normal text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-accent" /></label></div><div className="mt-4 grid gap-3"><button type="button" disabled={busy} onClick={() => run('authenticate')} className="rounded-full bg-black px-5 py-3 text-sm font-semibold tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-50">{busy ? 'Waiting for passkey…' : 'Continue with passkey'}</button><button type="button" disabled={busy} onClick={() => run('register')} className="rounded-full border border-black/15 px-5 py-3 text-sm font-semibold tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-50">Register this device</button></div><p className="mt-5 text-sm normal-case leading-relaxed tracking-normal text-black/55">Passkeys require a supported browser. Registration is available for the first workspace device. The name you choose will appear in Google Password Manager and your device prompt.</p></function ProgressBar({ percent }) {
+  return <main className="flex min-h-screen items-center justify-center bg-[#f4f1ed] px-5 py-8 text-black sm:px-8"><section className="w-full max-w-lg rounded-3xl border border-black/10 bg-white/85 p-6 shadow-sm sm:p-10" aria-labelledby="login-heading"><a href="/" aria-label="Back to RetentionPulse home"><Logo /></a><p className="mt-10 text-xs font-semibold tracking-[0.2em] text-accent">RETENTIONPULSE / PRIVATE WORKSPACE</p><h1 id="login-heading" className="mt-3 text-4xl font-semibold tracking-[-0.05em] sm:text-5xl">Unlock your pulse.</h1><p className="mt-4 text-base normal-case tracking-normal text-black/65">Create a passkey for this workspace or continue with one already registered on this device.</p>{error && <p className="mt-5 rounded-xl bg-red-50 p-4 text-sm normal-case text-red-700" role="alert">{error}</p>}<div className="mt-8 rounded-2xl border border-black/10 bg-black/[0.02] p-4"><label className="flex flex-col gap-2 text-sm font-semibold tracking-[0.12em] text-black/70" htmlFor="passkey-name"><span>Passkey name</span><input id="passkey-name" type="text" value={passkeyName} onChange={(event) => setPasskeyName(event.target.value)} placeholder="My work laptop" className="rounded-full border border-black/15 bg-white px-4 py-3 text-sm font-normal normal-case tracking-normal text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-accent" /></label></div><div className="mt-4 grid gap-3"><button type="button" disabled={busy} onClick={() => run('authenticate')} className="rounded-full bg-black px-5 py-3 text-sm font-semibold tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-50">{busy ? 'Waiting for passkey…' : 'Continue with passkey'}</button><button type="button" disabled={busy} onClick={() => run('register')} className="rounded-full border border-black/15 px-5 py-3 text-sm font-semibold tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-50">Register this device</button></div><p className="mt-5 text-sm normal-case leading-relaxed tracking-normal text-black/55">Passkeys require a supported browser. Registration is available for the first workspace device. The name you choose will appear in Google Password Manager and your device prompt.</p></section></main>
+}
+
+function ProgressBar({ percent }) {
   return (
     <div className="mt-3 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-black/10">
       <div
@@ -217,6 +221,22 @@ function Dashboard() {
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
   const [progress, setProgress] = useState(null) // { phase: 'uploading'|'analyzing', percent: 0-100 }
+  const [history, setHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [selectedHistoryId, setSelectedHistoryId] = useState(null)
+  const [loadedFilename, setLoadedFilename] = useState('')
+
+  const fetchHistory = async () => {
+    try {
+      setHistoryLoading(true)
+      const data = await getScanHistory()
+      setHistory(Array.isArray(data) ? data : [])
+    } catch {
+      // ignore
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -225,7 +245,10 @@ function Dashboard() {
         await bootstrapCsrf()
         const session = await getSession()
         if (!session.authenticated) { window.location.href = authRoutes.login; return }
-        if (active) setChecking(false)
+        if (active) {
+          setChecking(false)
+          fetchHistory()
+        }
       } catch (err) {
         if (active) { setError(err.message); setChecking(false) }
       }
@@ -233,8 +256,6 @@ function Dashboard() {
     return () => { active = false }
   }, [])
 
-  // Keep the blob URL alive for the full lifecycle of the selected file.
-  // Only create/revoke when file itself changes — NOT when analysis arrives.
   useEffect(() => {
     if (!file) { setPreviewUrl(''); return undefined }
     const url = URL.createObjectURL(file)
@@ -246,6 +267,8 @@ function Dashboard() {
     setError('')
     setAnalysis(null)
     setProgress(null)
+    setSelectedHistoryId(null)
+    setLoadedFilename('')
     if (!next) return
     if (next.size > 250 * 1024 * 1024) { setFile(null); setError('This video exceeds the 250 MB upload limit.'); return }
     setFile(next)
@@ -257,15 +280,50 @@ function Dashboard() {
     setBusy(true)
     setError('')
     setAnalysis(null)
+    setSelectedHistoryId(null)
+    setLoadedFilename('')
     setProgress({ phase: 'uploading', percent: 0 })
     try {
       const result = await analyzeVideo(file, undefined, 'auto', (p) => setProgress(p))
       setAnalysis(result)
+      fetchHistory()
     } catch (err) {
       if (err.name !== 'AbortError') setError(err.message || 'The video could not be analyzed. Please try again.')
     } finally {
       setBusy(false)
       setProgress(null)
+    }
+  }
+
+  const loadHistoryItem = async (item) => {
+    try {
+      setError('')
+      const full = await getScanHistoryItem(item.id)
+      if (full?.result) {
+        setAnalysis(full.result)
+        setSelectedHistoryId(item.id)
+        setLoadedFilename(item.filename)
+        setFile(null)
+        setPreviewUrl('')
+        window.scrollTo({ top: 300, behavior: 'smooth' })
+      }
+    } catch (err) {
+      setError(err.message || 'Could not load historical scan.')
+    }
+  }
+
+  const deleteHistoryItem = async (event, id) => {
+    event.stopPropagation()
+    try {
+      await deleteScanHistoryItem(id)
+      setHistory((prev) => prev.filter((item) => item.id !== id))
+      if (selectedHistoryId === id) {
+        setSelectedHistoryId(null)
+        setAnalysis(null)
+        setLoadedFilename('')
+      }
+    } catch {
+      // ignore
     }
   }
 
@@ -291,12 +349,13 @@ function Dashboard() {
       if (progress?.phase === 'uploading') return `Uploading ${progress.percent}%`
       return 'Analyzing…'
     }
-    if (analysis) return 'Scan again'
+    if (analysis) return 'Scan new video'
     if (file) return 'Scan this edit'
     return 'Ready to scan'
   }
 
-  return <main className="min-h-screen bg-[#f4f1ed] px-4 py-4 text-black sm:px-8 sm:py-5 md:px-12"><header className="mx-auto flex max-w-6xl flex-wrap items-center gap-3"><a href="/" aria-label="RetentionPulse home" className="flex min-w-0 items-center gap-2"><Logo /><span className="min-w-0 truncate text-xs font-semibold tracking-widest sm:text-sm">RP / WORKSPACE</span></a><button onClick={signOut} className="ml-auto inline-flex shrink-0 items-center gap-2 rounded-full border border-black/15 px-3 py-2 text-xs font-semibold tracking-[0.14em] hover:bg-black hover:text-white sm:px-4"><LogOut size={15} />Sign out</button></header><div className="mx-auto max-w-6xl py-10 sm:py-14"><div className="max-w-3xl"><p className="text-xs font-semibold tracking-[0.2em] text-accent">RETENTIONPULSE / ANALYSIS</p><h1 className="mt-4 text-[clamp(2.75rem,12vw,4.5rem)] font-semibold leading-[0.95] tracking-[-0.06em]">Find the seconds<br />that lose people.</h1><p className="mt-6 max-w-xl text-base normal-case tracking-normal text-black/65">Upload an edit and get a full motion and audio map of visual dead air, flagged moments, and practical repair suggestions.</p></div><form onSubmit={submit} className="mt-8 max-w-3xl sm:mt-10"><label onDragOver={(event) => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); selectFile(event.dataTransfer.files[0]) }} className={`flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-6 text-center transition sm:p-12 ${dragging ? 'border-accent bg-accent/10' : 'border-black/20 bg-white/65 hover:border-accent'}`}><Upload className="text-accent" /><span className="mt-4 max-w-full break-words text-sm font-semibold tracking-[0.14em]">{file ? file.name : 'Drop your video here'}</span><span className="mt-2 text-sm normal-case tracking-normal text-black/55">MP4, MOV, or M4V · up to 250 MB</span><input type="file" accept="video/mp4,video/quicktime,video/x-m4v,.mp4,.mov,.m4v" className="sr-only" onChange={(event) => selectFile(event.target.files[0])} /></label><button disabled={!file || busy} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-black px-6 py-3 text-sm font-semibold tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto">{buttonLabel()}<ArrowUpRight size={17} /></button><p className="mt-3 text-sm normal-case tracking-normal text-black/55" aria-live="polite">{statusText()}</p>{busy && progress && <ProgressBar percent={progress.percent} />}{error && <p className="mt-4 flex items-center gap-2 text-sm text-red-700" role="alert"><CircleAlert size={16} />{error}</p>}</form>{file && !analysis && <div className="mt-8"><VideoPreview file={file} src={previewUrl} /></div>}{analysis && <div className="mt-14 space-y-6"><VideoPreview file={file} src={previewUrl} /><Timeline analysis={analysis} /><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div className="sm:col-span-2 lg:col-span-4"><p className="text-xs font-semibold tracking-[0.18em] text-accent">SCAN RESULT</p><p className="mt-1 text-2xl font-semibold tracking-tight">Your edit's retention signal at a glance</p></div><Metric label="Health score" value={`${analysis.health_score}/100`} detail={analysis.health_score >= 80 ? 'Strong visual rhythm' : 'Worth a closer cut'} /><Metric label="Duration" value={formatTime(analysis.duration)} /><Metric label="Risk time" value={formatTime(analysis.risk_seconds)} detail={`${ratio} of the edit`} /><Metric label="Flagged moments" value={analysis.segments.length} detail={analysis.segments.length ? 'Review the segments below' : 'No dead air detected'} /></div><DiagnosticDetails analysis={analysis} /><div className="grid gap-6 lg:grid-cols-2"><section className="rounded-3xl border border-black/10 bg-white/80 p-5 sm:p-7" aria-labelledby="segments-heading"><p className="text-xs font-semibold tracking-[0.18em] text-accent">FLAGGED SEGMENTS</p><h2 id="segments-heading" className="mt-1 text-2xl font-semibold tracking-tight">Where attention drops</h2>{analysis.segments.length ? <ul className="mt-5 space-y-3">{analysis.segments.map((segment, index) => <li key={`${segment.start}-${index}`} className="flex flex-col gap-1 rounded-xl bg-risk/20 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"><span className="font-semibold">{formatTime(segment.start)}–{formatTime(segment.end)}</span><span className="text-black/60">{segment.duration.toFixed(1)}s · {(segment.confidence * 100).toFixed(0)}% confidence</span></li>)}</ul> : <p className="mt-5 flex items-center gap-2 text-sm text-black/60"><CheckCircle2 size={17} className="text-green-700" />Your edit keeps visual motion throughout.</p>}</section><section className="rounded-3xl border border-black/10 bg-white/80 p-5 sm:p-7" aria-labelledby="suggestions-heading"><p className="text-xs font-semibold tracking-[0.18em] text-accent">REPAIR PLAN</p><h2 id="suggestions-heading" className="mt-1 text-2xl font-semibold tracking-tight">Make the cut sharper</h2>{analysis.ai_repair_plan && <p className="mt-5 rounded-xl bg-accent/10 p-4 text-sm normal-case leading-relaxed tracking-normal">{analysis.ai_repair_plan}</p>}<ul className="mt-5 space-y-4">{analysis.suggestions.map((suggestion, index) => <li key={`${suggestion.timestamp}-${index}`} className="border-l-2 border-accent pl-4"><p className="text-sm font-semibold">{formatTime(suggestion.timestamp)} · {suggestion.action}</p><p className="mt-1 text-sm normal-case leading-relaxed tracking-normal text-black/65">{suggestion.detail}</p></li>)}</ul></section></div></div>}</div></main>
+  return <main className="min-h-screen bg-[#f4f1ed] px-4 py-4 text-black sm:px-8 sm:py-5 md:px-12"><header className="mx-auto flex max-w-6xl flex-wrap items-center gap-3"><a href="/" aria-label="RetentionPulse home" className="flex min-w-0 items-center gap-2"><Logo /><span className="min-w-0 truncate text-xs font-semibold tracking-widest sm:text-sm">RP / WORKSPACE</span></a><button onClick={signOut} className="ml-auto inline-flex shrink-0 items-center gap-2 rounded-full border border-black/15 px-3 py-2 text-xs font-semibold tracking-[0.14em] hover:bg-black hover:text-white sm:px-4"><LogOut size={15} />Sign out</button></header><div className="mx-auto max-w-6xl py-10 sm:py-14"><div className="max-w-3xl"><p className="text-xs font-semibold tracking-[0.2em] text-accent">RETENTIONPULSE / ANALYSIS</p><h1 className="mt-4 text-[clamp(2.75rem,12vw,4.5rem)] font-semibold leading-[0.95] tracking-[-0.06em]">Find the seconds<br />that lose people.</h1><p className="mt-6 max-w-xl text-base normal-case tracking-normal text-black/65">Upload an edit and get a full motion and audio map of visual dead air, flagged moments, and practical repair suggestions.</p></div><form onSubmit={submit} className="mt-8 max-w-3xl sm:mt-10"><label onDragOver={(event) => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); selectFile(event.dataTransfer.files[0]) }} className={`flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-6 text-center transition sm:p-12 ${dragging ? 'border-accent bg-accent/10' : 'border-black/20 bg-white/65 hover:border-accent'}`}><Upload className="text-accent" /><span className="mt-4 max-w-full break-words text-sm font-semibold tracking-[0.14em]">{file ? file.name : loadedFilename ? `Loaded: ${loadedFilename}` : 'Drop your video here'}</span><span className="mt-2 text-sm normal-case tracking-normal text-black/55">MP4, MOV, or M4V · up to 250 MB</span><input type="file" accept="video/mp4,video/quicktime,video/x-m4v,.mp4,.mov,.m4v" className="sr-only" onChange={(event) => selectFile(event.target.files[0])} /></label><button disabled={!file || busy} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-black px-6 py-3 text-sm font-semibold tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto">{buttonLabel()}<ArrowUpRight size={17} /></button><p className="mt-3 text-sm normal-case tracking-normal text-black/55" aria-live="polite">{statusText()}</p>{busy && progress && <ProgressBar percent={progress.percent} />}{error && <p className="mt-4 flex items-center gap-2 text-sm text-red-700" role="alert"><CircleAlert size={16} />{error}</p>}</form>{file && !analysis && <div className="mt-8"><VideoPreview file={file} src={previewUrl} /></div>}{history.length > 0 && <section className="mt-12 rounded-3xl border border-black/10 bg-white/60 p-5 sm:p-7"><div className="flex items-center justify-between"><div className="flex items-center gap-2"><History size={18} className="text-accent" /><h2 className="text-sm font-semibold tracking-[0.16em]">SCAN HISTORY ({history.length})</h2></div>{historyLoading && <span className="text-xs text-black/50">Updating…</span>}</div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{history.map((item) => <div key={item.id} onClick={() => loadHistoryItem(item)} className={`group relative flex cursor-pointer flex-col justify-between rounded-2xl border p-4 transition ${selectedHistoryId === item.id ? 'border-accent bg-accent/10 shadow-sm' : 'border-black/10 bg-white hover:border-black/30 hover:shadow-sm'}`}><div className="flex items-start justify-between gap-2"><div className="flex items-center gap-2 min-w-0"><FileVideo size={16} className="shrink-0 text-black/60" /><span className="truncate text-sm font-semibold tracking-tight">{item.filename}</span></div><button type="button" aria-label="Delete history item" onClick={(e) => deleteHistoryItem(e, item.id)} className="rounded-full p-1 text-black/40 hover:bg-black/10 hover:text-red-700"><Trash2 size={14} /></button></div><div className="mt-3 flex items-center justify-between text-xs"><span className={`rounded-full px-2.5 py-0.5 font-semibold ${item.health_score >= 80 ? 'bg-green-100 text-green-800' : item.health_score >= 50 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{item.health_score}/100</span><span className="flex items-center gap-1 text-black/55"><Clock size={12} />{formatTime(item.duration)}</span><span className="text-black/55">{item.flagged_count} flagged</span></div></div>)}</div></section>}{analysis && <div className="mt-14 space-y-6">{previewUrl && <VideoPreview file={file} src={previewUrl} />}<Timeline analysis={analysis} /><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div className="sm:col-span-2 lg:col-span-4"><p className="text-xs font-semibold tracking-[0.18em] text-accent">SCAN RESULT</p><p className="mt-1 text-2xl font-semibold tracking-tight">Your edit's retention signal at a glance</p></div><Metric label="Health score" value={`${analysis.health_score}/100`} detail={analysis.health_score >= 80 ? 'Strong visual rhythm' : 'Worth a closer cut'} /><Metric label="Duration" value={formatTime(analysis.duration)} /><Metric label="Risk time" value={formatTime(analysis.risk_seconds)} detail={`${ratio} of the edit`} /><Metric label="Flagged moments" value={analysis.segments.length} detail={analysis.segments.length ? 'Review the segments below' : 'No dead air detected'} /></div><DiagnosticDetails analysis={analysis} /><div className="grid gap-6 lg:grid-cols-2"><section className="rounded-3xl border border-black/10 bg-white/80 p-5 sm:p-7" aria-labelledby="segments-heading"><p className="text-xs font-semibold tracking-[0.18em] text-accent">FLAGGED SEGMENTS</p><h2 id="segments-heading" className="mt-1 text-2xl font-semibold tracking-tight">Where attention drops</h2>{analysis.segments.length ? <ul className="mt-5 space-y-3">{analysis.segments.map((segment, index) => <li key={`${segment.start}-${index}`} className="flex flex-col gap-1 rounded-xl bg-risk/20 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"><span className="font-semibold">{formatTime(segment.start)}–{formatTime(segment.end)}</span><span className="text-black/60">{segment.duration.toFixed(1)}s · {(segment.confidence * 100).toFixed(0)}% confidence</span></li>)}</ul> : <p className="mt-5 flex items-center gap-2 text-sm text-black/60"><CheckCircle2 size={17} className="text-green-700" />Your edit keeps visual motion throughout.</p>}</section><section className="rounded-3xl border border-black/10 bg-white/80 p-5 sm:p-7" aria-labelledby="suggestions-heading"><p className="text-xs font-semibold tracking-[0.18em] text-accent">REPAIR PLAN</p><h2 id="suggestions-heading" className="mt-1 text-2xl font-semibold tracking-tight">Make the cut sharper</h2>{analysis.ai_repair_plan && <p className="mt-5 rounded-xl bg-accent/10 p-4 text-sm normal-case leading-relaxed tracking-normal">{analysis.ai_repair_plan}</p>}<ul className="mt-5 space-y-4">{analysis.suggestions.map((suggestion, index) => <li key={`${suggestion.timestamp}-${index}`} className="border-l-2 border-accent pl-4"><p className="text-sm font-semibold">{formatTime(suggestion.timestamp)} · {suggestion.action}</p><p className="mt-1 text-sm normal-case leading-relaxed tracking-normal text-black/65">{suggestion.detail}</p></li>)}</ul></section></div></div>}</div></main>
 }
 
 export default function App() { const path = window.location.pathname; if (path.startsWith('/dashboard')) return <Dashboard />; if (path.startsWith('/login')) return <Login />; return <Landing /> }
+
